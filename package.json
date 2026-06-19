@@ -1,0 +1,30 @@
+{
+  "name": "tragents",
+  "private": true,
+  "version": "0.8.0",
+  "description": "Multi-agent translation suite for games, books, papers, and large engineering projects.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @tragents/web dev",
+    "build": "pnpm --config.verify-deps-before-run=warn -r --filter \"./packages/**\" build && pnpm --config.verify-deps-before-run=warn --filter @tragents/web build",
+    "preview": "pnpm --filter @tragents/web preview",
+    "check": "pnpm --config.verify-deps-before-run=warn -r --parallel check",
+    "lint": "pnpm --config.verify-deps-before-run=warn -r --parallel lint",
+    "format": "prettier --write \"**/*.{ts,svelte,css,md,json}\" --ignore-path .gitignore",
+    "clean": "pnpm -r exec rimraf node_modules dist .svelte-kit build && rimraf node_modules"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.4.2",
+    "prettier-plugin-svelte": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Community discussion
+    url: https://linux.do/
+    about: For open-ended questions, usage notes, and early feedback.
+  - name: Telegram channel
+    url: https://t.me/marsfox_offical
+    about: Follow project updates.

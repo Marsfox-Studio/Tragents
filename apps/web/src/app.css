@@ -1,0 +1,449 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-bg: var(--tg-bg);
+  --color-bg-elevated: var(--tg-bg-elevated);
+  --color-bg-sidebar: var(--tg-bg-sidebar);
+  --color-bg-input: var(--tg-bg-input);
+  --color-fg: var(--tg-fg);
+  --color-fg-muted: var(--tg-fg-muted);
+  --color-fg-subtle: var(--tg-fg-subtle);
+  --color-primary: var(--tg-primary);
+  --color-primary-fg: var(--tg-primary-fg);
+  --color-primary-hover: var(--tg-primary-hover);
+  --color-accent: var(--tg-accent);
+  --color-border: var(--tg-border);
+  --color-border-strong: var(--tg-border-strong);
+  --color-ring: var(--tg-ring);
+  --color-success: var(--tg-success);
+  --color-warning: var(--tg-warning);
+  --color-danger: var(--tg-danger);
+
+  --font-sans:
+    'Quicksand', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text',
+    'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Quicksand', var(--font-sans);
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+}
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  --tg-bg: transparent;
+  --tg-bg-elevated: rgba(255, 255, 255, 0.66);
+  --tg-bg-sidebar: rgba(255, 255, 255, 0.55);
+  --tg-bg-input: rgba(255, 255, 255, 0.78);
+  --tg-fg: #0a0a0a;
+  --tg-fg-muted: #4a4a4a;
+  --tg-fg-subtle: #8a8a8a;
+  --tg-primary: #0a0a0a;
+  --tg-primary-fg: #ffffff;
+  --tg-primary-hover: #2a2a2a;
+  --tg-accent: #5a5a5a;
+  --tg-border: rgba(10, 10, 10, 0.1);
+  --tg-border-strong: rgba(10, 10, 10, 0.2);
+  --tg-ring: rgba(10, 10, 10, 0.22);
+  --tg-success: #0f7a3a;
+  --tg-warning: #9a6300;
+  --tg-danger: #b8003e;
+
+  color-scheme: light dark;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+:root[data-theme='dark'] {
+  --tg-bg: #0a0a0a;
+  --tg-bg-elevated: #161616;
+  --tg-bg-sidebar: #0a0a0a;
+  --tg-bg-input: #141414;
+  --tg-fg: #f5f5f5;
+  --tg-fg-muted: #b0b0b0;
+  --tg-fg-subtle: #7a7a7a;
+  --tg-primary: #f5f5f5;
+  --tg-primary-fg: #0a0a0a;
+  --tg-primary-hover: #dcdcdc;
+  --tg-accent: #c0c0c0;
+  --tg-border: rgba(255, 255, 255, 0.1);
+  --tg-border-strong: rgba(255, 255, 255, 0.2);
+  --tg-ring: rgba(255, 255, 255, 0.28);
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: var(--tg-fg);
+  overflow-x: hidden;
+}
+
+body {
+  background-color: #ffffff;
+}
+
+:root[data-theme='dark'] body {
+  background-color: #0a0a0a;
+}
+
+.tg-bg-art {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tg-bg-gradient {
+  position: absolute;
+  inset: -12vmax;
+  background-image:
+    radial-gradient(closest-side, rgba(235, 105, 78, 0.4), rgba(235, 105, 78, 0)),
+    radial-gradient(closest-side, rgba(243, 11, 164, 0.32), rgba(243, 11, 164, 0)),
+    radial-gradient(closest-side, rgba(254, 234, 131, 0.46), rgba(254, 234, 131, 0)),
+    radial-gradient(closest-side, rgba(170, 142, 245, 0.38), rgba(170, 142, 245, 0)),
+    radial-gradient(closest-side, rgba(248, 192, 147, 0.42), rgba(248, 192, 147, 0)),
+    radial-gradient(closest-side, rgba(120, 220, 200, 0.34), rgba(120, 220, 200, 0)),
+    radial-gradient(closest-side, rgba(255, 180, 200, 0.38), rgba(255, 180, 200, 0)),
+    radial-gradient(closest-side, rgba(180, 210, 255, 0.38), rgba(180, 210, 255, 0)),
+    radial-gradient(closest-side, rgba(230, 165, 130, 0.34), rgba(230, 165, 130, 0)),
+    radial-gradient(closest-side, rgba(200, 145, 240, 0.36), rgba(200, 145, 240, 0)),
+    radial-gradient(closest-side, rgba(140, 200, 230, 0.34), rgba(140, 200, 230, 0)),
+    radial-gradient(closest-side, rgba(255, 215, 160, 0.4), rgba(255, 215, 160, 0)),
+    radial-gradient(closest-side, rgba(255, 145, 130, 0.36), rgba(255, 145, 130, 0)),
+    radial-gradient(closest-side, rgba(160, 180, 240, 0.34), rgba(160, 180, 240, 0)),
+    radial-gradient(closest-side, rgba(190, 160, 220, 0.34), rgba(190, 160, 220, 0)),
+    radial-gradient(closest-side, rgba(170, 200, 170, 0.32), rgba(170, 200, 170, 0)),
+    radial-gradient(closest-side, rgba(140, 220, 240, 0.32), rgba(140, 220, 240, 0)),
+    radial-gradient(closest-side, rgba(255, 195, 150, 0.38), rgba(255, 195, 150, 0)),
+    radial-gradient(closest-side, rgba(200, 170, 200, 0.32), rgba(200, 170, 200, 0)),
+    radial-gradient(closest-side, rgba(255, 225, 140, 0.36), rgba(255, 225, 140, 0));
+  background-size:
+    130vmax 130vmax,
+    80vmax 80vmax,
+    100vmax 100vmax,
+    110vmax 110vmax,
+    90vmax 90vmax,
+    70vmax 70vmax,
+    80vmax 80vmax,
+    85vmax 85vmax,
+    65vmax 65vmax,
+    75vmax 75vmax,
+    80vmax 80vmax,
+    72vmax 72vmax,
+    95vmax 95vmax,
+    68vmax 68vmax,
+    78vmax 78vmax,
+    82vmax 82vmax,
+    62vmax 62vmax,
+    88vmax 88vmax,
+    74vmax 74vmax,
+    66vmax 66vmax;
+  background-position:
+    -80vmax -80vmax,
+    60vmax -30vmax,
+    10vmax 10vmax,
+    -30vmax -10vmax,
+    50vmax 50vmax,
+    -50vmax 30vmax,
+    60vmax 50vmax,
+    20vmax -30vmax,
+    -20vmax 70vmax,
+    70vmax 20vmax,
+    -40vmax 30vmax,
+    30vmax -50vmax,
+    80vmax 60vmax,
+    -60vmax 60vmax,
+    40vmax -60vmax,
+    -10vmax -50vmax,
+    50vmax 80vmax,
+    -70vmax 10vmax,
+    25vmax 35vmax,
+    65vmax -10vmax;
+  background-repeat: no-repeat;
+  filter: blur(42px);
+  animation: tg-drift 28s ease-in-out infinite;
+  will-change: background-size, background-position;
+}
+
+:root[data-theme='dark'] .tg-bg-gradient {
+  /* Keep dark mode solid black; ChatInput supplies its own subtle glow. */
+  display: none;
+}
+
+@keyframes tg-drift {
+  0%,
+  100% {
+    background-position:
+      -80vmax -80vmax,
+      60vmax -30vmax,
+      10vmax 10vmax,
+      -30vmax -10vmax,
+      50vmax 50vmax,
+      -50vmax 30vmax,
+      60vmax 50vmax,
+      20vmax -30vmax,
+      -20vmax 70vmax,
+      70vmax 20vmax,
+      -40vmax 30vmax,
+      30vmax -50vmax,
+      80vmax 60vmax,
+      -60vmax 60vmax,
+      40vmax -60vmax,
+      -10vmax -50vmax,
+      50vmax 80vmax,
+      -70vmax 10vmax,
+      25vmax 35vmax,
+      65vmax -10vmax;
+  }
+  25% {
+    background-position:
+      -60vmax -90vmax,
+      50vmax -40vmax,
+      0vmax -20vmax,
+      -40vmax -20vmax,
+      40vmax 60vmax,
+      -40vmax 50vmax,
+      50vmax 60vmax,
+      30vmax -10vmax,
+      -10vmax 60vmax,
+      60vmax 30vmax,
+      -30vmax 40vmax,
+      35vmax -40vmax,
+      70vmax 70vmax,
+      -50vmax 50vmax,
+      50vmax -50vmax,
+      0vmax -40vmax,
+      40vmax 70vmax,
+      -60vmax 20vmax,
+      35vmax 25vmax,
+      55vmax -20vmax;
+  }
+  50% {
+    background-position:
+      -50vmax -70vmax,
+      40vmax -30vmax,
+      30vmax 20vmax,
+      20vmax 30vmax,
+      30vmax 50vmax,
+      -30vmax 50vmax,
+      40vmax 30vmax,
+      40vmax 0vmax,
+      0vmax 50vmax,
+      55vmax 40vmax,
+      -20vmax 50vmax,
+      40vmax -30vmax,
+      60vmax 50vmax,
+      -40vmax 40vmax,
+      60vmax -40vmax,
+      10vmax -30vmax,
+      30vmax 60vmax,
+      -50vmax 30vmax,
+      45vmax 15vmax,
+      45vmax -30vmax;
+  }
+  75% {
+    background-position:
+      -50vmax -40vmax,
+      50vmax -10vmax,
+      20vmax 0vmax,
+      -10vmax 30vmax,
+      45vmax 55vmax,
+      -45vmax 25vmax,
+      50vmax 45vmax,
+      15vmax -25vmax,
+      -25vmax 60vmax,
+      65vmax 25vmax,
+      -35vmax 35vmax,
+      25vmax -45vmax,
+      75vmax 65vmax,
+      -55vmax 55vmax,
+      45vmax -55vmax,
+      -5vmax -45vmax,
+      45vmax 75vmax,
+      -65vmax 15vmax,
+      20vmax 30vmax,
+      60vmax -15vmax;
+  }
+}
+
+@keyframes tg-drift {
+  0%,
+  100% {
+    background-size:
+      130vmax 130vmax,
+      80vmax 80vmax,
+      100vmax 100vmax,
+      110vmax 110vmax,
+      90vmax 90vmax,
+      70vmax 70vmax,
+      80vmax 80vmax,
+      85vmax 85vmax,
+      65vmax 65vmax,
+      75vmax 75vmax,
+      80vmax 80vmax,
+      72vmax 72vmax;
+    background-position:
+      -80vmax -80vmax,
+      60vmax -30vmax,
+      10vmax 10vmax,
+      -30vmax -10vmax,
+      50vmax 50vmax,
+      -50vmax 30vmax,
+      60vmax 50vmax,
+      20vmax -30vmax,
+      -20vmax 70vmax,
+      70vmax 20vmax,
+      -40vmax 30vmax,
+      30vmax -50vmax;
+  }
+  25% {
+    background-size:
+      100vmax 100vmax,
+      90vmax 90vmax,
+      110vmax 110vmax,
+      90vmax 90vmax,
+      60vmax 60vmax,
+      80vmax 80vmax,
+      72vmax 72vmax,
+      90vmax 90vmax,
+      70vmax 70vmax,
+      80vmax 80vmax,
+      72vmax 72vmax,
+      78vmax 78vmax;
+    background-position:
+      -60vmax -90vmax,
+      50vmax -40vmax,
+      0vmax -20vmax,
+      -40vmax -20vmax,
+      40vmax 60vmax,
+      -40vmax 50vmax,
+      50vmax 60vmax,
+      30vmax -10vmax,
+      -10vmax 60vmax,
+      60vmax 30vmax,
+      -30vmax 40vmax,
+      35vmax -40vmax;
+  }
+  50% {
+    background-size:
+      80vmax 80vmax,
+      110vmax 110vmax,
+      90vmax 90vmax,
+      80vmax 80vmax,
+      80vmax 80vmax,
+      90vmax 90vmax,
+      80vmax 80vmax,
+      75vmax 75vmax,
+      55vmax 55vmax,
+      85vmax 85vmax,
+      90vmax 90vmax,
+      66vmax 66vmax;
+    background-position:
+      -50vmax -70vmax,
+      40vmax -30vmax,
+      30vmax 20vmax,
+      20vmax 30vmax,
+      30vmax 50vmax,
+      -30vmax 50vmax,
+      40vmax 30vmax,
+      40vmax 0vmax,
+      0vmax 50vmax,
+      55vmax 40vmax,
+      -20vmax 50vmax,
+      40vmax -30vmax;
+  }
+  75% {
+    background-size:
+      120vmax 120vmax,
+      90vmax 90vmax,
+      100vmax 100vmax,
+      100vmax 100vmax,
+      70vmax 70vmax,
+      75vmax 75vmax,
+      82vmax 82vmax,
+      80vmax 80vmax,
+      60vmax 60vmax,
+      78vmax 78vmax,
+      85vmax 85vmax,
+      72vmax 72vmax;
+    background-position:
+      -50vmax -40vmax,
+      50vmax -10vmax,
+      20vmax 0vmax,
+      -10vmax 30vmax,
+      45vmax 55vmax,
+      -45vmax 25vmax,
+      50vmax 45vmax,
+      15vmax -25vmax,
+      -25vmax 60vmax,
+      65vmax 25vmax,
+      -35vmax 35vmax,
+      25vmax -45vmax;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-bg-gradient {
+    animation: none;
+  }
+}
+
+.tg-app {
+  position: relative;
+  z-index: 2;
+  min-height: 100dvh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--tg-ring);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: var(--tg-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--tg-border-strong);
+  background-clip: padding-box;
+}

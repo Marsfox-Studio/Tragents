@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest a focused improvement for Tragents.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is painful or missing today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the smallest useful version of the feature.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Translation pipeline
+        - File format parser
+        - Web UI
+        - Providers and models
+        - Desktop or editor integration
+        - Documentation
+        - Other
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      description: Links, examples, or screenshots that explain the workflow.

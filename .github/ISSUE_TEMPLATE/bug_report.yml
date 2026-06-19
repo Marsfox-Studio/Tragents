@@ -1,0 +1,47 @@
+name: Bug report
+description: Report something that is broken or behaving incorrectly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please keep examples small enough to reproduce.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the visible problem and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Run ...
+    validations:
+      required: true
+
+  - type: input
+    id: mode
+    attributes:
+      label: Translation mode
+      placeholder: text, long-form, i18n, document, code-docs, subtitles, ptp
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 126 on Windows 11
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Paste console output, build errors, or a small sample file if useful.
+      render: text

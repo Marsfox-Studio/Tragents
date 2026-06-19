@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "noEmit": true,
+    "paths": {
+      "@tragents/shared": ["../shared/src/index.ts"],
+      "@tragents/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
