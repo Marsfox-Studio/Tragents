@@ -18,17 +18,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
           node-version: 24
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@11.1.2 --activate
-          pnpm --version
-
+          cache: pnpm 
+          
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
