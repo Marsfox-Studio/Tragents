@@ -5,6 +5,8 @@ live under `packages/`.
 
 ## Local Setup
 
+Use Node.js 22.13+; Node 24 is recommended.
+
 ```bash
 pnpm install
 pnpm dev

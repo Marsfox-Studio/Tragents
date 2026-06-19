@@ -97,7 +97,7 @@ Tragents does not send your project data to a Tragents server.
 
 Requirements:
 
-- Node.js 20+
+- Node.js 22.13+ (Node 24 recommended)
 - pnpm 11+
 
 ```bash

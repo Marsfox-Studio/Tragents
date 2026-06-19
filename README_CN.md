@@ -88,7 +88,7 @@ Tragents 不会把项目数据发到 Tragents 服务器。
 
 需要：
 
-- Node.js 20+
+- Node.js 22.13+（推荐 Node 24）
 - pnpm 11+
 
 ```bash
