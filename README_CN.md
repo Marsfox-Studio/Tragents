@@ -30,10 +30,6 @@
   <video src="./packages/resources/demo.mp4" controls width="860"></video>
 </p>
 
-<p align="center">
-  <a href="./packages/resources/demo.mp4">观看演示视频</a>
-</p>
-
 ---
 
 Tragents 处理的是那些“格式和文字同样重要”的翻译任务。
