@@ -4,6 +4,7 @@
   import { cubicOut } from 'svelte/easing';
   import type { ProviderKind, ThemeMode } from '@tragents/shared';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import Logo from '$lib/components/Logo.svelte';
   import Brand from '$lib/components/Brand.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -16,7 +17,7 @@
   // Already onboarded? Bounce back to home — welcome is a one-shot.
   onMount(() => {
     if (settings.current.onboardingCompleted) {
-      goto('/', { replaceState: true });
+      goto(`${base}/`, { replaceState: true });
     }
   });
 
@@ -64,7 +65,7 @@
     await settings.setUILanguage(i18n.locale);
     await settings.setTheme('mono', mode);
     await settings.completeOnboarding();
-    goto('/');
+    goto(`${base}/`);
   }
 </script>
 

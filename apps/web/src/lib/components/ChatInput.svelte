@@ -9,6 +9,7 @@
   } from '@tragents/shared';
   import Icon from './Icon.svelte';
   import Chip from './Chip.svelte';
+  import { base } from '$app/paths';
   import { i18n } from '$lib/i18n.svelte';
   import { settings } from '$lib/stores';
 
@@ -482,7 +483,7 @@
     {/each}
   </ul>
   <div class="picker-foot">
-    <a class="manage-link" href="/settings?section=pipelines">{i18n.t('chat.pipelineManage')}</a>
+    <a class="manage-link" href={`${base}/settings?section=pipelines`}>{i18n.t('chat.pipelineManage')}</a>
     <button class="primary-btn" onclick={() => pipelineDialog?.close()}>
       {i18n.t('common.done')}
     </button>

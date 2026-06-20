@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { applyTheme, watchSystemMode } from '@tragents/ui';
   import {
     settings,
@@ -58,8 +59,9 @@
 
       ready = true;
 
-      if (!settings.current.onboardingCompleted && page.url.pathname !== '/welcome') {
-        goto('/welcome', { replaceState: true });
+      const routePath = page.url.pathname.slice(base.length) || '/';
+      if (!settings.current.onboardingCompleted && routePath !== '/welcome') {
+        goto(`${base}/welcome`, { replaceState: true });
       }
     })();
 

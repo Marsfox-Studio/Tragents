@@ -2,6 +2,7 @@
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import { page } from '$app/state';
   import type { ModeKey, TranslationMode } from '@tragents/shared';
   import type { OrchestratorEvent } from '@tragents/core';
@@ -250,7 +251,7 @@
       }
     } catch (err) {
       if (err instanceof NoProviderError) {
-        goto('/settings');
+        goto(`${base}/settings`);
         return;
       }
       if (task) {
@@ -341,7 +342,7 @@
 
   async function handleSubmit(text: string) {
     if (providers.list.length === 0) {
-      goto('/settings');
+      goto(`${base}/settings`);
       return;
     }
 
@@ -434,7 +435,7 @@
     <div class="project-bar" in:fade={{ duration: 220 }}>
       <Icon name="sparkles" size={14} />
       <span>{currentProject.name}</span>
-      <a href="/" class="exit-project" aria-label="Exit project">
+      <a href={`${base}/`} class="exit-project" aria-label="Exit project">
         <Icon name="x" size={14} />
       </a>
     </div>

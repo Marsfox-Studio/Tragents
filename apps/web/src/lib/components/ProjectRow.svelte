@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Project } from '@tragents/shared';
   import { findLanguage } from '@tragents/shared';
+  import { base } from '$app/paths';
   import Icon from './Icon.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { projects } from '$lib/stores';
@@ -87,7 +88,7 @@
     />
   </div>
 {:else}
-  <a class="row" class:active href={`/?p=${project.id}`} ondblclick={startRename}>
+  <a class="row" class:active href={`${base}/?p=${project.id}`} ondblclick={startRename}>
     <span class="dot" aria-hidden="true"></span>
     <span class="text">
       <span class="name">{project.name}</span>

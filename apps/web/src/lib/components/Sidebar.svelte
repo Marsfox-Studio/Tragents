@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import Brand from './Brand.svelte';
   import Logo from './Logo.svelte';
   import Icon from './Icon.svelte';
@@ -32,7 +33,7 @@
         sourceLanguage: settings.current.defaultSourceLanguage,
         targetLanguage: settings.current.defaultTargetLanguage,
       });
-      await goto(`/?p=${project.id}`);
+      await goto(`${base}/?p=${project.id}`);
     } finally {
       creating = false;
     }
@@ -52,17 +53,17 @@
 
   function handleSettingsClick(e: MouseEvent) {
     e.preventDefault();
-    const path = page.url.pathname;
+    const path = page.url.pathname.slice(base.length) || '/';
     if (path === '/settings') {
       const back = (typeof sessionStorage !== 'undefined'
         ? sessionStorage.getItem(LAST_NON_SETTINGS_KEY)
-        : null) ?? '/';
-      goto(back);
+        : null) ?? `${base}/`;
+      goto(back.startsWith(base) ? back : `${base}${back}`);
     } else {
       if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(LAST_NON_SETTINGS_KEY, page.url.pathname + page.url.search);
+        sessionStorage.setItem(LAST_NON_SETTINGS_KEY, path + page.url.search);
       }
-      goto('/settings');
+      goto(`${base}/settings`);
     }
   }
 </script>
@@ -70,11 +71,11 @@
 <aside class="sidebar" class:collapsed={collapsed} aria-label="Primary">
   <div class="head">
     {#if collapsed}
-      <a href="/" class="brand-link" aria-label={i18n.t('brand.name')}>
+      <a href={`${base}/`} class="brand-link" aria-label={i18n.t('brand.name')}>
         <Logo size={28} animate={false} />
       </a>
     {:else}
-      <a href="/" class="brand-link" aria-label={i18n.t('brand.name')}>
+      <a href={`${base}/`} class="brand-link" aria-label={i18n.t('brand.name')}>
         <Brand size="md" />
       </a>
     {/if}
@@ -170,8 +171,8 @@
   <div class="bottom">
     <a
       class="bottom-item"
-      class:active={page.url.pathname === '/activity'}
-      href="/activity"
+      class:active={(page.url.pathname.slice(base.length) || '/') === '/activity'}
+      href={`${base}/activity`}
       title={collapsed ? i18n.t('nav.activity') : undefined}
     >
       <Icon name="activity" size={16} />
@@ -179,8 +180,8 @@
     </a>
     <a
       class="bottom-item"
-      class:active={page.url.pathname === '/glossaries'}
-      href="/glossaries"
+      class:active={(page.url.pathname.slice(base.length) || '/') === '/glossaries'}
+      href={`${base}/glossaries`}
       title={collapsed ? i18n.t('nav.glossaries') : undefined}
     >
       <Icon name="book" size={16} />
@@ -188,8 +189,8 @@
     </a>
     <a
       class="bottom-item"
-      class:active={page.url.pathname === '/settings'}
-      href="/settings"
+      class:active={(page.url.pathname.slice(base.length) || '/') === '/settings'}
+      href={`${base}/settings`}
       onclick={handleSettingsClick}
       title={collapsed ? i18n.t('nav.settings') : undefined}
     >
