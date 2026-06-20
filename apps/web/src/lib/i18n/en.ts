@@ -1,7 +1,3 @@
-// English dictionary. Keep keys nested for readability; the lookup walks
-// dot-paths at runtime. When adding a new key, add it here first, then
-// translate in zh.ts and any future locales.
-
 export const en = {
   brand: {
     name: 'Tragents',
@@ -84,6 +80,7 @@ export const en = {
     agentsLabel: 'Agents',
     durationLabel: 'Duration',
     queuedLabel: 'Queued',
+    contextTitle: 'Inherited context',
     discussionTitle: 'Agent discussion',
     discussionEmpty:
       'Your agents will start talking here once translation begins. Reviewers join when they have a take.',
@@ -219,14 +216,83 @@ export const en = {
     removeProviderConfirm: 'Remove provider "{name}"? Existing pipelines that use it will fall back to another configured provider.',
     about: 'About',
     aboutText:
-      'Tragents v0.8.0 · multi-agent translation for projects and literature. Web build. Desktop and VS Code coming soon.',
+      'Tragents v0.10.1 · local-first multi-agent translation with project memory, local backup, and optional GitHub private-repo backup. Web build. Desktop and VS Code coming soon.',
     sections: {
       appearance: 'Appearance',
       providers: 'Providers',
       pipelines: 'Pipelines',
       modeAssignments: 'Mode assignments',
+      personalization: 'Personalization',
+      backup: 'Backup',
       about: 'About',
     },
+  },
+
+  personalization: {
+    title: 'Personalization',
+    sub: 'Keep style, terms, and translation habits consistent across a project.',
+    enabled: 'Use translation preferences',
+    enabledHint: 'Apply the brief below to new translations.',
+    memoryEnabled: 'Use project memory',
+    memoryEnabledHint: 'Bring previous terminology and style decisions into later tasks.',
+    autoUpdateMemory: 'Update memory after each task',
+    autoUpdateMemoryHint: 'Save a small summary of completed project translations.',
+    tone: 'Tone',
+    strategy: 'Strategy',
+    scenario: 'Scenario',
+    scenarioPlaceholder: 'Game UI, product docs, academic paper...',
+    audience: 'Audience',
+    audiencePlaceholder: 'Players, engineers, reviewers...',
+    styleNote: 'Style notes',
+    styleNotePlaceholder: 'Preferred voice, banned phrasing, naming rules...',
+    constraints: 'Constraints',
+    constraintsPlaceholder: 'Keep placeholders, avoid overly literal phrasing, use CN punctuation...',
+    projectMemory: 'Project memory',
+    noMemory: 'No project memory yet. It appears here after project translations start using memory.',
+    memoryItems: 'items',
+    tones: {
+      natural: 'Natural',
+      formal: 'Formal',
+      academic: 'Academic',
+      literary: 'Literary',
+      game: 'Game localization',
+      technical: 'Technical',
+    },
+    strategies: {
+      faithful: 'Faithful',
+      balanced: 'Balanced',
+      localized: 'Localized',
+    },
+  },
+
+  backup: {
+    title: 'Backup',
+    sub: 'Export this workspace locally, or sync it to your own private GitHub repository. API keys are never included.',
+    export: 'Export backup',
+    chooseFile: 'Choose backup file',
+    keyHint: 'Provider profiles are saved without keys. GitHub tokens stay encrypted on this device.',
+    ready: 'Backup ready to import',
+    import: 'Import backup',
+    projects: 'projects',
+    glossaries: 'glossaries',
+    memories: 'memories',
+    imported: 'Imported {projects} project(s) and {memories} memory record(s).',
+    githubTitle: 'GitHub private repository',
+    githubSub: 'Push the same backup JSON to a repo you control. Use a fine-grained token with contents read/write access.',
+    tokenSaved: 'Token saved',
+    tokenMissing: 'No token',
+    githubOwner: 'Owner',
+    githubRepo: 'Repository',
+    githubBranch: 'Branch',
+    githubPath: 'Backup file path',
+    githubToken: 'GitHub token',
+    githubTokenPlaceholder: 'Fine-grained PAT, stored locally',
+    saveToken: 'Save token',
+    clearToken: 'Clear token',
+    githubPush: 'Push to GitHub',
+    githubRestore: 'Restore from GitHub',
+    lastBackup: 'Last GitHub backup: {time}',
+    githubPushed: 'Pushed backup to GitHub: ',
   },
 
   pipelines: {

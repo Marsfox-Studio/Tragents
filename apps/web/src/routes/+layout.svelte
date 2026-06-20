@@ -4,7 +4,17 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { applyTheme, watchSystemMode } from '@tragents/ui';
-  import { settings, providers, projects, glossaries, checkpoints, sessions, tasks, activities } from '$lib/stores';
+  import {
+    settings,
+    providers,
+    projects,
+    glossaries,
+    checkpoints,
+    sessions,
+    tasks,
+    activities,
+    memories,
+  } from '$lib/stores';
   import { i18n } from '$lib/i18n.svelte';
   import Logo from '$lib/components/Logo.svelte';
 
@@ -25,6 +35,7 @@
           sessions.load(),
           tasks.load(),
           activities.load(),
+          memories.load(),
         ]);
         // Any task left in 'running' state died with the previous page load.
         tasks.reconcileAfterReload();

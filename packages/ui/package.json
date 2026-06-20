@@ -1,6 +1,6 @@
 {
   "name": "@tragents/ui",
-  "version": "0.8.0",
+  "version": "0.10.1",
   "private": true,
   "description": "tragents shared design tokens, theme system, and UI primitives.",
   "type": "module",

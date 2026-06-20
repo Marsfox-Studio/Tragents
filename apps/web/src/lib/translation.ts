@@ -3,12 +3,15 @@ import type {
   GlossaryEntry,
   ModeKey,
   Pipeline,
+  Project,
   ProviderConfig,
+  TranslationContextPack,
   TranslationMode,
 } from '@tragents/shared';
 import {
   BUILT_IN_MODELS,
   runPipeline,
+  detectMode,
   detectModeAgent,
   type DetectedMode,
   type OrchestratorEvent,
@@ -20,15 +23,15 @@ import { settings } from './stores/settings.svelte.js';
 import { projects } from './stores/projects.svelte.js';
 import { glossaries } from './stores/glossaries.svelte.js';
 import { activities } from './stores/activities.svelte.js';
+import { memories } from './stores/memories.svelte.js';
+import { buildTranslationContextPack, inferMemoryUpdate } from './personalization.js';
 
 export interface TranslateRequest {
   text: string;
   source: LanguageCode;
   target: LanguageCode;
   mode?: TranslationMode;
-  /** Explicit pipeline override; takes priority over mode→pipeline map. */
   pipelineId?: string;
-  /** Active project — its glossary is passed to the prompt if set. */
   projectId?: string;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
@@ -41,6 +44,7 @@ export interface TranslateResult {
   mode: Exclude<TranslationMode, 'auto'>;
   pipelineName: string;
   agentCount: number;
+  contextPack?: TranslationContextPack;
 }
 
 export class NoProviderError extends Error {
@@ -50,12 +54,6 @@ export class NoProviderError extends Error {
   }
 }
 
-/**
- * Resolve which Pipeline a request should use:
- *   1. Explicit `pipelineId` override → that one.
- *   2. Mode → modeAssignments[mode] → pipeline.
- *   3. First pipeline.
- */
 export function resolvePipeline(
   modeKey: ModeKey,
   pipelineId?: string,
@@ -110,15 +108,30 @@ export function buildAgentsFromPipeline(
   return agents;
 }
 
-/**
- * Resolve glossary entries for a translation. If a project is active and has
- * a glossaryId, returns that glossary's entries; otherwise undefined.
- */
 function resolveGlossary(projectId?: string): GlossaryEntry[] | undefined {
   if (!projectId) return undefined;
   const project = projects.list.find((p) => p.id === projectId);
   if (!project?.glossaryId) return undefined;
   return glossaries.byId(project.glossaryId)?.entries;
+}
+
+function resolveProject(projectId?: string): Project | undefined {
+  if (!projectId) return undefined;
+  return projects.list.find((p) => p.id === projectId);
+}
+
+export function previewTranslationContext(projectId?: string): TranslationContextPack | undefined {
+  const project = resolveProject(projectId);
+  const personalization = settings.current.personalization;
+  const memory =
+    personalization.memoryEnabled && projectId ? memories.byProject(projectId) : undefined;
+
+  return buildTranslationContextPack({
+    personalization,
+    project,
+    memory,
+    glossary: resolveGlossary(projectId),
+  });
 }
 
 /**
@@ -133,20 +146,41 @@ export async function detectModeForText(
   text: string,
   signal?: AbortSignal,
 ): Promise<DetectedMode | null> {
+  const structuralMode = detectMode(text);
   if (providers.list.length === 0) return null;
   const cfg = providers.list[0]!;
   const model = cfg.defaultModel ?? BUILT_IN_MODELS[cfg.kind][0]?.id;
   if (!model) return null;
+
   try {
-    return await detectModeAgent({
+    const detected = await detectModeAgent({
       provider: createProvider(cfg),
       model,
       text,
       signal,
     });
+    if (detected) {
+      if (structuralMode !== 'text' && structuralMode !== 'long-form' && detected.mode !== structuralMode) {
+        return {
+          mode: structuralMode,
+          confidence: Math.max(detected.confidence, 0.9),
+          reason: `AI checked; preserved ${structuralMode} structure.`,
+        };
+      }
+      return detected;
+    }
   } catch {
-    return null;
+    // Fall through to the deterministic structure detector.
   }
+
+  if (structuralMode !== 'text') {
+    return {
+      mode: structuralMode,
+      confidence: 0.75,
+      reason: `AI unavailable; detected ${structuralMode} structure.`,
+    };
+  }
+  return null;
 }
 
 export async function translateText(req: TranslateRequest): Promise<TranslateResult> {
@@ -165,6 +199,8 @@ export async function translateText(req: TranslateRequest): Promise<TranslateRes
 
   const agents = buildAgentsFromPipeline(pipeline, providers.list);
   const glossary = resolveGlossary(req.projectId);
+  const project = resolveProject(req.projectId);
+  const contextPack = previewTranslationContext(req.projectId);
 
   let resolvedMode: Exclude<TranslationMode, 'auto'> = 'text';
   const started = performance.now();
@@ -178,6 +214,9 @@ export async function translateText(req: TranslateRequest): Promise<TranslateRes
       agents,
       providers: providers.list,
       glossary,
+      projectName: project?.name,
+      projectDescription: project?.description,
+      styleNote: contextPack?.promptText,
       signal: req.signal,
       onEvent: (event) => {
         if (event.type === 'mode') resolvedMode = event.mode;
@@ -199,12 +238,26 @@ export async function translateText(req: TranslateRequest): Promise<TranslateRes
       durationMs,
     });
 
+    const personalization = settings.current.personalization;
+    if (
+      req.projectId &&
+      personalization.enabled &&
+      personalization.memoryEnabled &&
+      personalization.autoUpdateMemory
+    ) {
+      await memories.merge(
+        req.projectId,
+        inferMemoryUpdate({ source: req.text, output, contextPack }),
+      );
+    }
+
     return {
       output,
       durationMs,
       mode: resolvedMode,
       pipelineName: pipeline.name,
       agentCount: agents.length,
+      contextPack,
     };
   } catch (err) {
     const aborted = (err as Error)?.name === 'AbortError';

@@ -20,10 +20,18 @@
 
 <p align="center">
   <img alt="build" src="https://img.shields.io/github/actions/workflow/status/Marsfox-Studio/Tragents/ci.yml?branch=main&label=build&style=for-the-badge" />
-  <img alt="release" src="https://img.shields.io/badge/release-v0.8.0-2f6fed?style=for-the-badge" />
+  <img alt="release" src="https://img.shields.io/badge/release-v0.10.1-2f6fed?style=for-the-badge" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=for-the-badge" />
   <img alt="svelte" src="https://img.shields.io/badge/Svelte-5.x-ff3e00?style=for-the-badge" />
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-11.x-f69220?style=for-the-badge" />
+</p>
+
+<p align="center">
+  <video src="./packages/resources/demo.mp4" controls width="860"></video>
+</p>
+
+<p align="center">
+  <a href="./packages/resources/demo.mp4">观看演示视频</a>
 </p>
 
 ---
@@ -42,7 +50,9 @@ Tragents 处理的是那些“格式和文字同样重要”的翻译任务。
 - 用可配置 Pipeline 跑翻译：translator、reviewer、consistency，以及可选 summarizer。
 - 长文本支持分片、上下文摘要、并行 chunk 翻译和 provider 级限流。
 - 结构化文件不会被粗暴压成普通文本；翻译后会尽量按原格式回写。
+- 每次翻译可继承项目偏好：语气、读者、场景、约束、术语表和轻量项目记忆。
 - IndexedDB 保存项目状态、任务、会话、检查点和活动记录。
+- 支持本地备份导出/导入，也可以把同一份备份同步到你自己的 GitHub 私有仓库。
 - BYOK：支持 Anthropic、OpenAI 和 OpenAI-compatible endpoint。
 
 ## 翻译模式
@@ -80,7 +90,9 @@ Provider 支持保持简单：
 Tragents 不会把项目数据发到 Tragents 服务器。
 
 - API key 使用 WebCrypto 加密后存入 IndexedDB。
-- 项目、术语表、检查点、任务、会话和活动记录保存在本地。
+- 项目、术语表、检查点、任务、会话、活动记录和项目记忆保存在本地。
+- 备份会包含工作区数据，但刻意不包含 provider 密钥和 GitHub token。
+- 可选 GitHub 备份会从浏览器直接调用 GitHub Contents API。token 只在本机加密保存，不会写进备份 JSON。
 - 页面刷新后会修正残留的 running 任务，避免旧流式任务看起来还在运行。
 - 翻译内容仍会发送给你选择的模型 provider。
 
@@ -121,9 +133,9 @@ scripts/          项目维护脚本
 
 | 版本 | 重点 |
 | --- | --- |
-| v0.8 | 文件格式、分层长文本模式、活动记录持久化 |
-| v0.9 | 桌面壳、原生文件对话框、系统 Keychain 存储 |
-| v0.10 | 面向 i18n 文件和代码注释的 VS Code 工作流 |
+| v0.10 | 个性化、项目记忆、本地备份、GitHub 私有仓库备份 |
+| v0.11 | 桌面壳、原生文件对话框、系统 Keychain 存储 |
+| v0.12 | 面向 i18n 文件和代码注释的 VS Code 工作流 |
 
 Hosted API 会和开源 BYOK 版本分开设计。
 
@@ -133,9 +145,15 @@ Hosted API 会和开源 BYOK 版本分开设计。
 - X: [@AflydreamCat](https://x.com/AflydreamCat)
 - Telegram 频道: [@marsfox_offical](https://t.me/marsfox_offical)
 
-## Star History -> 感谢&支持
+## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Marsfox-Studio/Tragents&type=Date)](https://www.star-history.com/#Marsfox-Studio/Tragents&Date)
+<a href="https://www.star-history.com/?repos=Marsfox-Studio%2FTragents&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 ## License
 

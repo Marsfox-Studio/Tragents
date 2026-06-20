@@ -15,7 +15,12 @@
   import DiscussionStream from '$lib/components/DiscussionStream.svelte';
   import { settings, providers, projects, tasks, taskIdFor } from '$lib/stores';
   import type { PersistedTask } from '$lib/stores';
-  import { NoProviderError, detectModeForText, translateText } from '$lib/translation';
+  import {
+    NoProviderError,
+    detectModeForText,
+    previewTranslationContext,
+    translateText,
+  } from '$lib/translation';
   import { i18n } from '$lib/i18n.svelte';
 
   const projectId = $derived(page.url.searchParams.get('p') ?? undefined);
@@ -191,6 +196,7 @@
     const conversational = pipeline
       ? pipeline.translators + pipeline.reviewers > 1
       : false;
+    const contextPack = previewTranslationContext(currentProject?.id);
 
     const now = Date.now();
     task = {
@@ -203,6 +209,7 @@
       mode: runMode,
       source,
       target,
+      contextInherited: contextPack?.inherited ?? [],
       discussionEnabled: conversational,
       discussion: [],
       startedAt: now,
@@ -239,6 +246,7 @@
           ms: result.durationMs,
         };
         if (result.mode === 'i18n' || !task.output) task.output = result.output;
+        task.contextInherited = result.contextPack?.inherited ?? task.contextInherited ?? [];
       }
     } catch (err) {
       if (err instanceof NoProviderError) {
@@ -581,6 +589,17 @@
 
           {#if task.error && task.output}
             <p class="status-error">{task.error}</p>
+          {/if}
+
+          {#if task.contextInherited?.length}
+            <div class="memory-strip">
+              <span class="memory-title">{i18n.t('home.contextTitle')}</span>
+              <ul>
+                {#each task.contextInherited.slice(0, 6) as item}
+                  <li>{item}</li>
+                {/each}
+              </ul>
+            </div>
           {/if}
 
           <div class="status-actions">
@@ -1026,6 +1045,33 @@
     justify-content: flex-end;
     gap: 6px;
     margin-top: 2px;
+  }
+  .memory-strip {
+    border-top: 1px solid var(--tg-border);
+    padding-top: 9px;
+  }
+  .memory-title {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--tg-fg-subtle);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .memory-strip ul {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .memory-strip li {
+    color: var(--tg-fg-muted);
+    font-size: 12px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   .chip {

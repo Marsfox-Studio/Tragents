@@ -1,6 +1,6 @@
 {
   "name": "@tragents/web",
-  "version": "0.8.0",
+  "version": "0.10.1",
   "private": true,
   "description": "tragents web app — SvelteKit + Tailwind 4 + Motion One.",
   "type": "module",

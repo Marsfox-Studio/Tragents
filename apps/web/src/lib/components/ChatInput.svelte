@@ -146,11 +146,22 @@
     yml: 'i18n',
     po: 'i18n',
     pot: 'i18n',
-    md: 'long-form',
-    markdown: 'long-form',
+    md: 'document',
+    markdown: 'document',
+    html: 'document',
+    htm: 'document',
     txt: 'auto',
-    rst: 'long-form',
-    tex: 'long-form',
+    rst: 'document',
+    tex: 'document',
+    ts: 'code-docs',
+    tsx: 'code-docs',
+    js: 'code-docs',
+    jsx: 'code-docs',
+    py: 'code-docs',
+    go: 'code-docs',
+    rs: 'code-docs',
+    srt: 'subtitles',
+    vtt: 'subtitles',
   };
 
   const MAX_DROP_BYTES = 5 * 1024 * 1024;
@@ -269,7 +280,7 @@
             <Icon name="paperclip" size={14} />
             <input
               type="file"
-              accept=".json,.jsonc,.yaml,.yml,.po,.pot,.md,.markdown,.txt,.rst,.tex"
+              accept=".json,.jsonc,.yaml,.yml,.po,.pot,.md,.markdown,.html,.htm,.txt,.rst,.tex,.ts,.tsx,.js,.jsx,.py,.go,.rs,.srt,.vtt"
               onchange={handleFilePick}
             />
           </label>

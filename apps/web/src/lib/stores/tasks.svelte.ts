@@ -25,6 +25,7 @@ export interface PersistedTask {
   phase?: 'chunk' | 'parse' | 'summarize' | 'translate' | 'review' | 'consistency' | 'assemble';
   progress?: { current: number; total: number };
   meta?: { mode: string; pipelineName: string; agentCount: number; ms: number };
+  contextInherited?: string[];
   discussionEnabled: boolean;
   discussion: DiscussionTurn[];
   startedAt: number;

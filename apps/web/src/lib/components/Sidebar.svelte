@@ -427,4 +427,54 @@
     background: color-mix(in srgb, var(--tg-primary) 10%, transparent);
     color: var(--tg-fg);
   }
+
+  @media (max-width: 720px) {
+    .sidebar,
+    .sidebar.collapsed {
+      width: 100%;
+      height: auto;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-right: none;
+      border-bottom: 1px solid var(--tg-border);
+    }
+    .head,
+    .sidebar.collapsed .head {
+      flex-direction: row;
+      min-height: 0;
+      padding: 0;
+    }
+    .brand-link,
+    .sidebar.collapsed .brand-link {
+      flex: initial;
+      justify-content: flex-start;
+    }
+    .collapse-toggle,
+    .search,
+    .new-btn,
+    .lists,
+    .spacer {
+      display: none;
+    }
+    .bottom {
+      justify-self: end;
+      flex-direction: row;
+      align-items: center;
+      border-top: none;
+      padding: 0;
+      margin: 0;
+      gap: 4px;
+    }
+    .bottom-item,
+    .sidebar.collapsed .bottom-item {
+      padding: 8px;
+      justify-content: center;
+    }
+    .bottom-item span {
+      display: none;
+    }
+  }
 </style>

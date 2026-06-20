@@ -7,6 +7,7 @@
   import type {
     BrandPalette,
     ModeKey,
+    PersonalizationSettings,
     Pipeline,
     PipelinePreset,
     ProviderKind,
@@ -21,17 +22,31 @@
   import ProviderForm from '$lib/components/ProviderForm.svelte';
   import PipelineEditor from '$lib/components/PipelineEditor.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-  import { providers, settings } from '$lib/stores';
+  import { memories, projects, providers, settings } from '$lib/stores';
   import { applyTheme, listPalettes } from '@tragents/ui';
   import { i18n, UI_LOCALES } from '$lib/i18n.svelte';
+  import {
+    clearGitHubBackupToken,
+    downloadLocalBackup,
+    importLocalBackup,
+    pushBackupToGitHub,
+    readLocalBackup,
+    restoreBackupFromGitHub,
+    saveGitHubBackupToken,
+    type BackupImportSummary,
+    type GitHubBackupResult,
+    type LocalBackupPayload,
+  } from '$lib/backup';
 
-  type SectionId = 'appearance' | 'providers' | 'pipelines' | 'modes' | 'about';
+  type SectionId = 'appearance' | 'providers' | 'pipelines' | 'modes' | 'personalization' | 'backup' | 'about';
 
-  const SECTIONS: Array<{ id: SectionId; icon: 'sun' | 'key' | 'sliders' | 'languages' | 'sparkles' }> = [
+  const SECTIONS: Array<{ id: SectionId; icon: 'sun' | 'key' | 'sliders' | 'languages' | 'sparkles' | 'book' }> = [
     { id: 'appearance', icon: 'sun' },
     { id: 'providers', icon: 'key' },
     { id: 'pipelines', icon: 'sliders' },
     { id: 'modes', icon: 'languages' },
+    { id: 'personalization', icon: 'sparkles' },
+    { id: 'backup', icon: 'book' },
     { id: 'about', icon: 'sparkles' },
   ];
 
@@ -55,6 +70,19 @@
   const modes: ThemeMode[] = ['system', 'light', 'dark'];
   const paletteIds: BrandPalette[] = ['iris', 'clay', 'mono', 'mesh'];
   const previewMode = $derived(settings.current.theme.mode === 'dark' ? 'dark' : 'light');
+  const toneIds: PersonalizationSettings['tone'][] = [
+    'natural',
+    'formal',
+    'academic',
+    'literary',
+    'game',
+    'technical',
+  ];
+  const strategyIds: PersonalizationSettings['strategy'][] = [
+    'balanced',
+    'faithful',
+    'localized',
+  ];
 
   async function selectPalette(p: BrandPalette) {
     await settings.setTheme(p, settings.current.theme.mode);
@@ -156,6 +184,104 @@
   async function setModeAssignment(mode: ModeKey, pipelineId: string) {
     await settings.setModeAssignment(mode, pipelineId);
   }
+
+  let selectedBackup = $state<LocalBackupPayload | null>(null);
+  let backupError = $state('');
+  let backupImported = $state<BackupImportSummary | null>(null);
+  let importingBackup = $state(false);
+  let githubToken = $state('');
+  let githubBusy = $state(false);
+  let githubResult = $state<GitHubBackupResult | null>(null);
+  let githubImported = $state<BackupImportSummary | null>(null);
+
+  function sectionLabel(id: SectionId): string {
+    return i18n.t(`settings.sections.${id === 'modes' ? 'modeAssignments' : id}`);
+  }
+
+  async function updatePersonalization(patch: Partial<PersonalizationSettings>) {
+    await settings.updatePersonalization(patch);
+  }
+
+  async function handleBackupFile(event: Event) {
+    const file = (event.currentTarget as HTMLInputElement).files?.[0];
+    selectedBackup = null;
+    backupImported = null;
+    backupError = '';
+    if (!file) return;
+    try {
+      selectedBackup = await readLocalBackup(file);
+    } catch (err) {
+      backupError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  async function confirmImportBackup() {
+    if (!selectedBackup || importingBackup) return;
+    importingBackup = true;
+    backupError = '';
+    try {
+      backupImported = await importLocalBackup(selectedBackup);
+      selectedBackup = null;
+    } catch (err) {
+      backupError = err instanceof Error ? err.message : String(err);
+    } finally {
+      importingBackup = false;
+    }
+  }
+
+  async function updateGitHubBackup(
+    field: 'owner' | 'repo' | 'branch' | 'path',
+    value: string,
+  ) {
+    await settings.updateGitHubBackup({ [field]: value });
+  }
+
+  async function saveGitHubToken() {
+    backupError = '';
+    try {
+      await saveGitHubBackupToken(githubToken);
+      githubToken = '';
+    } catch (err) {
+      backupError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  async function clearGitHubToken() {
+    backupError = '';
+    try {
+      await clearGitHubBackupToken();
+    } catch (err) {
+      backupError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  async function pushGitHubBackup() {
+    if (githubBusy) return;
+    githubBusy = true;
+    backupError = '';
+    githubResult = null;
+    try {
+      githubResult = await pushBackupToGitHub();
+    } catch (err) {
+      backupError = err instanceof Error ? err.message : String(err);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function restoreGitHubBackup() {
+    if (githubBusy) return;
+    githubBusy = true;
+    backupError = '';
+    githubImported = null;
+    try {
+      githubImported = await restoreBackupFromGitHub();
+    } catch (err) {
+      backupError = err instanceof Error ? err.message : String(err);
+    } finally {
+      githubBusy = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -174,7 +300,7 @@
           onclick={() => selectSection(s.id)}
         >
           <Icon name={s.icon} size={15} />
-          <span>{i18n.t(`settings.sections.${s.id === 'modes' ? 'modeAssignments' : s.id}`)}</span>
+          <span>{sectionLabel(s.id)}</span>
         </button>
       {/each}
     </nav>
@@ -383,6 +509,337 @@
                 </div>
               {/each}
             </div>
+          </section>
+        {:else if active === 'personalization'}
+          <section class="section">
+            <header>
+              <h2>{i18n.t('personalization.title')}</h2>
+              <p class="sub">{i18n.t('personalization.sub')}</p>
+            </header>
+
+            <div class="toggle-list">
+              <label class="toggle-row">
+                <span>
+                  <strong>{i18n.t('personalization.enabled')}</strong>
+                  <small>{i18n.t('personalization.enabledHint')}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.current.personalization.enabled}
+                  onchange={(e) =>
+                    updatePersonalization({
+                      enabled: (e.currentTarget as HTMLInputElement).checked,
+                    })}
+                />
+              </label>
+              <label class="toggle-row">
+                <span>
+                  <strong>{i18n.t('personalization.memoryEnabled')}</strong>
+                  <small>{i18n.t('personalization.memoryEnabledHint')}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.current.personalization.memoryEnabled}
+                  onchange={(e) =>
+                    updatePersonalization({
+                      memoryEnabled: (e.currentTarget as HTMLInputElement).checked,
+                    })}
+                />
+              </label>
+              <label class="toggle-row">
+                <span>
+                  <strong>{i18n.t('personalization.autoUpdateMemory')}</strong>
+                  <small>{i18n.t('personalization.autoUpdateMemoryHint')}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.current.personalization.autoUpdateMemory}
+                  onchange={(e) =>
+                    updatePersonalization({
+                      autoUpdateMemory: (e.currentTarget as HTMLInputElement).checked,
+                    })}
+                />
+              </label>
+            </div>
+
+            <div class="form-grid">
+              <label>
+                <span>{i18n.t('personalization.tone')}</span>
+                <select
+                  value={settings.current.personalization.tone}
+                  onchange={(e) =>
+                    updatePersonalization({
+                      tone: (e.currentTarget as HTMLSelectElement)
+                        .value as PersonalizationSettings['tone'],
+                    })}
+                >
+                  {#each toneIds as tone (tone)}
+                    <option value={tone}>{i18n.t(`personalization.tones.${tone}`)}</option>
+                  {/each}
+                </select>
+              </label>
+
+              <label>
+                <span>{i18n.t('personalization.strategy')}</span>
+                <select
+                  value={settings.current.personalization.strategy}
+                  onchange={(e) =>
+                    updatePersonalization({
+                      strategy: (e.currentTarget as HTMLSelectElement)
+                        .value as PersonalizationSettings['strategy'],
+                    })}
+                >
+                  {#each strategyIds as strategy (strategy)}
+                    <option value={strategy}>
+                      {i18n.t(`personalization.strategies.${strategy}`)}
+                    </option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+
+            <div class="textarea-stack">
+              <label>
+                <span>{i18n.t('personalization.scenario')}</span>
+                <input
+                  value={settings.current.personalization.scenario ?? ''}
+                  placeholder={i18n.t('personalization.scenarioPlaceholder')}
+                  oninput={(e) =>
+                    updatePersonalization({
+                      scenario: (e.currentTarget as HTMLInputElement).value,
+                    })}
+                />
+              </label>
+              <label>
+                <span>{i18n.t('personalization.audience')}</span>
+                <input
+                  value={settings.current.personalization.audience ?? ''}
+                  placeholder={i18n.t('personalization.audiencePlaceholder')}
+                  oninput={(e) =>
+                    updatePersonalization({
+                      audience: (e.currentTarget as HTMLInputElement).value,
+                    })}
+                />
+              </label>
+              <label>
+                <span>{i18n.t('personalization.styleNote')}</span>
+                <textarea
+                  rows="4"
+                  value={settings.current.personalization.styleNote ?? ''}
+                  placeholder={i18n.t('personalization.styleNotePlaceholder')}
+                  oninput={(e) =>
+                    updatePersonalization({
+                      styleNote: (e.currentTarget as HTMLTextAreaElement).value,
+                    })}
+                ></textarea>
+              </label>
+              <label>
+                <span>{i18n.t('personalization.constraints')}</span>
+                <textarea
+                  rows="3"
+                  value={settings.current.personalization.constraints ?? ''}
+                  placeholder={i18n.t('personalization.constraintsPlaceholder')}
+                  oninput={(e) =>
+                    updatePersonalization({
+                      constraints: (e.currentTarget as HTMLTextAreaElement).value,
+                    })}
+                ></textarea>
+              </label>
+            </div>
+
+            <h3 class="subhead">{i18n.t('personalization.projectMemory')}</h3>
+            {#if memories.list.length === 0}
+              <p class="section-hint">{i18n.t('personalization.noMemory')}</p>
+            {:else}
+              <ul class="memory-list">
+                {#each memories.list as memory (memory.projectId)}
+                  {@const project = projects.byId(memory.projectId)}
+                  <li>
+                    <div>
+                      <strong>{project?.name ?? memory.projectId}</strong>
+                      <span>
+                        {memory.styleDecisions.length + memory.terminologyDecisions.length + memory.voiceNotes.length}
+                        {i18n.t('personalization.memoryItems')}
+                      </span>
+                    </div>
+                    <Button size="sm" variant="ghost" onclick={() => memories.remove(memory.projectId)}>
+                      {i18n.t('common.remove')}
+                    </Button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </section>
+        {:else if active === 'backup'}
+          <section class="section">
+            <header>
+              <h2>{i18n.t('backup.title')}</h2>
+              <p class="sub">{i18n.t('backup.sub')}</p>
+            </header>
+
+            <div class="backup-actions">
+              <Button variant="primary" onclick={downloadLocalBackup}>
+                {i18n.t('backup.export')}
+              </Button>
+              <label class="file-pick">
+                <input type="file" accept="application/json,.json" onchange={handleBackupFile} />
+                <span>{i18n.t('backup.chooseFile')}</span>
+              </label>
+            </div>
+            <p class="section-hint">{i18n.t('backup.keyHint')}</p>
+
+            {#if selectedBackup}
+              <div class="backup-preview">
+                <strong>{i18n.t('backup.ready')}</strong>
+                <span>
+                  {selectedBackup.projects.length} {i18n.t('backup.projects')} ·
+                  {selectedBackup.glossaries.length} {i18n.t('backup.glossaries')} ·
+                  {selectedBackup.memories.length} {i18n.t('backup.memories')}
+                </span>
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onclick={confirmImportBackup}
+                  disabled={importingBackup}
+                >
+                  {importingBackup ? i18n.t('common.loading') : i18n.t('backup.import')}
+                </Button>
+              </div>
+            {/if}
+
+            {#if backupImported}
+              <p class="backup-ok">
+                {i18n.t('backup.imported', {
+                  projects: backupImported.projects,
+                  memories: backupImported.memories,
+                })}
+              </p>
+            {/if}
+
+            <div class="backup-card">
+              <div class="backup-card-head">
+                <div>
+                  <h3>{i18n.t('backup.githubTitle')}</h3>
+                  <p>{i18n.t('backup.githubSub')}</p>
+                </div>
+                <span class="token-chip" class:saved={settings.current.githubBackup.tokenSaved}>
+                  {settings.current.githubBackup.tokenSaved
+                    ? i18n.t('backup.tokenSaved')
+                    : i18n.t('backup.tokenMissing')}
+                </span>
+              </div>
+
+              <div class="backup-grid">
+                <label>
+                  <span>{i18n.t('backup.githubOwner')}</span>
+                  <input
+                    value={settings.current.githubBackup.owner}
+                    placeholder="Marsfox-Studio"
+                    oninput={(e) =>
+                      updateGitHubBackup('owner', (e.currentTarget as HTMLInputElement).value)}
+                  />
+                </label>
+                <label>
+                  <span>{i18n.t('backup.githubRepo')}</span>
+                  <input
+                    value={settings.current.githubBackup.repo}
+                    placeholder="tragents-backup"
+                    oninput={(e) =>
+                      updateGitHubBackup('repo', (e.currentTarget as HTMLInputElement).value)}
+                  />
+                </label>
+                <label>
+                  <span>{i18n.t('backup.githubBranch')}</span>
+                  <input
+                    value={settings.current.githubBackup.branch}
+                    placeholder="main"
+                    oninput={(e) =>
+                      updateGitHubBackup('branch', (e.currentTarget as HTMLInputElement).value)}
+                  />
+                </label>
+                <label>
+                  <span>{i18n.t('backup.githubPath')}</span>
+                  <input
+                    value={settings.current.githubBackup.path}
+                    placeholder="tragents/backup.json"
+                    oninput={(e) =>
+                      updateGitHubBackup('path', (e.currentTarget as HTMLInputElement).value)}
+                  />
+                </label>
+              </div>
+
+              <label class="token-row">
+                <span>{i18n.t('backup.githubToken')}</span>
+                <div>
+                  <input
+                    type="password"
+                    value={githubToken}
+                    placeholder={i18n.t('backup.githubTokenPlaceholder')}
+                    oninput={(e) => (githubToken = (e.currentTarget as HTMLInputElement).value)}
+                  />
+                  <Button
+                    size="sm"
+                    variant="subtle"
+                    onclick={saveGitHubToken}
+                    disabled={!githubToken.trim()}
+                  >
+                    {i18n.t('backup.saveToken')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onclick={clearGitHubToken}
+                    disabled={!settings.current.githubBackup.tokenSaved}
+                  >
+                    {i18n.t('backup.clearToken')}
+                  </Button>
+                </div>
+              </label>
+
+              <div class="backup-actions">
+                <Button
+                  variant="primary"
+                  onclick={pushGitHubBackup}
+                  disabled={githubBusy || !settings.current.githubBackup.tokenSaved}
+                >
+                  {githubBusy ? i18n.t('common.loading') : i18n.t('backup.githubPush')}
+                </Button>
+                <Button
+                  variant="subtle"
+                  onclick={restoreGitHubBackup}
+                  disabled={githubBusy || !settings.current.githubBackup.tokenSaved}
+                >
+                  {i18n.t('backup.githubRestore')}
+                </Button>
+              </div>
+
+              {#if settings.current.githubBackup.lastBackupAt}
+                <p class="section-hint">
+                  {i18n.t('backup.lastBackup', {
+                    time: new Date(settings.current.githubBackup.lastBackupAt).toLocaleString(),
+                  })}
+                </p>
+              {/if}
+              {#if githubResult}
+                <p class="backup-ok">
+                  {i18n.t('backup.githubPushed')}
+                  <a href={githubResult.url} target="_blank" rel="noreferrer">
+                    {githubResult.sha.slice(0, 7)}
+                  </a>
+                </p>
+              {/if}
+              {#if githubImported}
+                <p class="backup-ok">
+                  {i18n.t('backup.imported', {
+                    projects: githubImported.projects,
+                    memories: githubImported.memories,
+                  })}
+                </p>
+              {/if}
+            </div>
+            {#if backupError}
+              <p class="backup-error">{backupError}</p>
+            {/if}
           </section>
         {:else if active === 'about'}
           <section class="section">
@@ -822,6 +1279,302 @@
     outline: none;
     border-color: var(--tg-primary);
     box-shadow: 0 0 0 3px var(--tg-ring);
+  }
+
+  .toggle-list,
+  .textarea-stack,
+  .memory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 16px;
+    border: 1px solid var(--tg-border);
+    border-radius: 14px;
+    background: var(--tg-bg-elevated);
+  }
+  .toggle-row span {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .toggle-row strong {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .toggle-row small {
+    color: var(--tg-fg-muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .toggle-row input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--tg-primary);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  @media (max-width: 720px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .form-grid label,
+  .textarea-stack label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .form-grid label > span,
+  .textarea-stack label > span {
+    color: var(--tg-fg-subtle);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .form-grid select,
+  .textarea-stack input,
+  .textarea-stack textarea {
+    width: 100%;
+    border: 1px solid var(--tg-border);
+    border-radius: 12px;
+    background: var(--tg-bg-input);
+    color: var(--tg-fg);
+    font: inherit;
+    font-size: 13.5px;
+    padding: 10px 12px;
+  }
+  @media (max-width: 720px) {
+    .rail-item {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+  }
+  .textarea-stack {
+    margin-top: 12px;
+  }
+  .textarea-stack textarea {
+    resize: vertical;
+    min-height: 86px;
+    line-height: 1.5;
+  }
+  .form-grid select:focus,
+  .textarea-stack input:focus,
+  .textarea-stack textarea:focus {
+    outline: none;
+    border-color: var(--tg-primary);
+    box-shadow: 0 0 0 3px var(--tg-ring);
+  }
+  .memory-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .memory-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 15px;
+    background: var(--tg-bg-elevated);
+    border: 1px solid var(--tg-border);
+    border-radius: 14px;
+  }
+  .memory-list li > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .memory-list strong {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .memory-list span {
+    color: var(--tg-fg-muted);
+    font-size: 12.5px;
+  }
+  .backup-card {
+    margin-top: 24px;
+    padding: 18px;
+    border: 1px solid var(--tg-border);
+    border-radius: 14px;
+    background: var(--tg-bg-elevated);
+  }
+  .backup-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .backup-card-head h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 550;
+  }
+  .backup-card-head p {
+    margin: 0;
+    color: var(--tg-fg-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+    max-width: 540px;
+  }
+  .token-chip {
+    flex: 0 0 auto;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--tg-border);
+    color: var(--tg-fg-muted);
+    background: var(--tg-bg-input);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .token-chip.saved {
+    border-color: color-mix(in srgb, var(--tg-accent) 26%, var(--tg-border));
+    color: var(--tg-accent);
+    background: color-mix(in srgb, var(--tg-accent) 9%, transparent);
+  }
+  .backup-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .backup-grid label,
+  .token-row {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .backup-grid label > span,
+  .token-row > span {
+    color: var(--tg-fg-subtle);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .backup-grid input,
+  .token-row input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--tg-border);
+    border-radius: 12px;
+    background: var(--tg-bg-input);
+    color: var(--tg-fg);
+    font: inherit;
+    font-size: 13.5px;
+    padding: 10px 12px;
+  }
+  .backup-grid input:focus,
+  .token-row input:focus {
+    outline: none;
+    border-color: var(--tg-primary);
+    box-shadow: 0 0 0 3px var(--tg-ring);
+  }
+  .token-row {
+    margin-bottom: 14px;
+  }
+  .token-row > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .backup-ok a {
+    color: inherit;
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+  @media (max-width: 720px) {
+    .backup-card {
+      padding: 16px;
+    }
+    .backup-card-head {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .token-chip {
+      width: fit-content;
+    }
+    .backup-grid,
+    .token-row > div {
+      grid-template-columns: 1fr;
+    }
+  }
+  .backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .file-pick {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 7px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--tg-border);
+    background: var(--tg-bg-elevated);
+    color: var(--tg-fg);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .file-pick input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .backup-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--tg-border);
+    background: var(--tg-bg-elevated);
+    margin-top: 18px;
+  }
+  .backup-preview strong {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .backup-preview span {
+    flex: 1;
+    color: var(--tg-fg-muted);
+    font-size: 12.5px;
+  }
+  .backup-ok,
+  .backup-error {
+    margin: 14px 0 0;
+    padding: 9px 11px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .backup-ok {
+    background: color-mix(in srgb, var(--tg-accent) 10%, transparent);
+    color: var(--tg-accent);
+  }
+  .backup-error {
+    background: color-mix(in srgb, var(--tg-danger) 10%, transparent);
+    color: var(--tg-danger);
   }
 
   .about {

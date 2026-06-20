@@ -17,11 +17,17 @@ export interface DetectedMode {
 }
 
 /**
- * Modes the detector is allowed to suggest. We deliberately exclude
- * 'document', 'code-docs', 'subtitles', and 'ptp' until their engines land —
- * suggesting a mode the user can't pick is worse than picking text/long-form.
+ * Modes the detector is allowed to suggest. PTP stays manual because it is an
+ * editing workflow, not an input format.
  */
-const VALID_MODES: readonly ModeKey[] = ['text', 'long-form', 'i18n'];
+const VALID_MODES: readonly ModeKey[] = [
+  'text',
+  'long-form',
+  'i18n',
+  'document',
+  'code-docs',
+  'subtitles',
+];
 
 /**
  * Ask a model to classify a piece of input into a translation mode. Returns

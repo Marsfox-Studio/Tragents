@@ -1,7 +1,5 @@
-// Minimal Promise-wrapping IndexedDB layer. No external dep.
-
 const DB_NAME = 'tragents';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export const STORES = {
   settings: 'settings',
@@ -12,6 +10,7 @@ export const STORES = {
   checkpoints: 'checkpoints',
   sessions: 'sessions',
   activities: 'activities',
+  memories: 'memories',
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
@@ -58,6 +57,9 @@ export function openDB(): Promise<IDBDatabase> {
         const store = db.createObjectStore(STORES.activities, { keyPath: 'id' });
         store.createIndex('byProject', 'projectId');
         store.createIndex('byCreated', 'createdAt');
+      }
+      if (!db.objectStoreNames.contains(STORES.memories)) {
+        db.createObjectStore(STORES.memories, { keyPath: 'projectId' });
       }
     };
   });

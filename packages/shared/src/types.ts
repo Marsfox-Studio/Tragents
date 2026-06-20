@@ -245,10 +245,56 @@ export interface ActivityRecord {
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type BrandPalette = 'iris' | 'clay' | 'mono' | 'mesh';
+export type TranslationTone =
+  | 'natural'
+  | 'formal'
+  | 'academic'
+  | 'literary'
+  | 'game'
+  | 'technical';
+export type TranslationStrategy = 'faithful' | 'balanced' | 'localized';
 
 export interface ThemeSettings {
   mode: ThemeMode;
   palette: BrandPalette;
+}
+
+export interface PersonalizationSettings {
+  enabled: boolean;
+  memoryEnabled: boolean;
+  projectOnlyMemory: boolean;
+  autoUpdateMemory: boolean;
+  tone: TranslationTone;
+  strategy: TranslationStrategy;
+  audience?: string;
+  scenario?: string;
+  styleNote?: string;
+  constraints?: string;
+}
+
+export interface GitHubBackupSettings {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+  tokenSaved: boolean;
+  lastBackupAt?: string;
+}
+
+export interface ProjectMemory {
+  projectId: string;
+  styleDecisions: string[];
+  terminologyDecisions: string[];
+  contextSummary?: string;
+  voiceNotes: string[];
+  updatedAt: number;
+}
+
+export interface TranslationContextPack {
+  personalization: PersonalizationSettings;
+  memory?: ProjectMemory;
+  inherited: string[];
+  promptText: string;
 }
 
 export interface AppSettings {
@@ -259,4 +305,6 @@ export interface AppSettings {
   defaultTargetLanguage: LanguageCode;
   pipelines: Pipeline[];
   modeAssignments: ModeAssignments;
+  personalization: PersonalizationSettings;
+  githubBackup: GitHubBackupSettings;
 }

@@ -5,7 +5,7 @@
 <h1 align="center">Tragents</h1>
 
 <p align="center">
-  A local-first translation workbench for long text, product copy, i18n files, code Officially releasedcomments, and subtitles.
+  A local-first translation workbench for long text, product copy, i18n files, code comments, and subtitles.
 </p>
 
 <p align="center">
@@ -20,10 +20,18 @@
 
 <p align="center">
   <img alt="build" src="https://img.shields.io/github/actions/workflow/status/Marsfox-Studio/Tragents/ci.yml?branch=main&label=build&style=for-the-badge" />
-  <img alt="release" src="https://img.shields.io/badge/release-v0.8.0-2f6fed?style=for-the-badge" />
+  <img alt="release" src="https://img.shields.io/badge/release-v0.10.1-2f6fed?style=for-the-badge" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=for-the-badge" />
   <img alt="svelte" src="https://img.shields.io/badge/Svelte-5.x-ff3e00?style=for-the-badge" />
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-11.x-f69220?style=for-the-badge" />
+</p>
+
+<p align="center">
+  <video src="./packages/resources/demo.mp4" controls width="860"></video>
+</p>
+
+<p align="center">
+  <a href="./packages/resources/demo.mp4">Watch the demo video</a>
 </p>
 
 ---
@@ -46,8 +54,12 @@ glossaries, checkpoints, active tasks, and activity history live in the browser.
 - Handles long-form text with chunking, context summaries, parallel chunk work,
   and provider-level concurrency limits.
 - Translates structured formats without flattening everything into plain text.
+- Carries project-level preferences into each run: tone, audience, scenario,
+  constraints, glossary, and lightweight project memory.
 - Preserves local project state with IndexedDB, including active tasks and
   activity logs.
+- Exports and imports local backups, and can sync the same backup to your own
+  private GitHub repository.
 - Uses bring-your-own-key providers: Anthropic, OpenAI, and OpenAI-compatible
   endpoints.
 
@@ -88,8 +100,12 @@ catalog.
 Tragents does not send your project data to a Tragents server.
 
 - API keys are encrypted with WebCrypto and stored in IndexedDB.
-- Projects, glossaries, checkpoints, tasks, sessions, and activity logs are
-  stored locally.
+- Projects, glossaries, checkpoints, tasks, sessions, activity logs, and project
+  memories are stored locally.
+- Backup exports include workspace data but deliberately omit provider keys and
+  GitHub tokens.
+- Optional GitHub backup uses the GitHub Contents API from your browser. The
+  token is encrypted locally and is never written into the backup JSON.
 - Running tasks are reconciled after reload so stale streams do not look alive.
 - The web app still sends translation content to the provider you choose.
 
@@ -130,9 +146,9 @@ scripts/          project maintenance scripts
 
 | Version | Focus |
 | --- | --- |
-| v0.8 | File formats, hierarchical long-form mode, activity persistence |
-| v0.9 | Desktop shell, native file dialogs, OS keychain storage |
-| v0.10 | VS Code workflow for i18n files and code comments |
+| v0.10 | Personalization, project memory, local backup, GitHub private-repo backup |
+| v0.11 | Desktop shell, native file dialogs, OS keychain storage |
+| v0.12 | VS Code workflow for i18n files and code comments |
 
 Hosted API work is planned separately from the open-source BYOK build.
 
@@ -142,9 +158,15 @@ Hosted API work is planned separately from the open-source BYOK build.
 - X: [@AflydreamCat](https://x.com/AflydreamCat)
 - Telegram channel: [@marsfox_offical](https://t.me/marsfox_offical)
 
-## Star History -> 感谢&支持
+## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Marsfox-Studio/Tragents&type=Date)](https://www.star-history.com/#Marsfox-Studio/Tragents&Date)
+<a href="https://www.star-history.com/?repos=Marsfox-Studio%2FTragents&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 ## License
 

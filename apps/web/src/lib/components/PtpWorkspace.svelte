@@ -371,8 +371,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    /* Limit width so the ChatInput sitting in the right corner doesn't
-       overlap the rows; the home page sets the overall layout. */
     max-width: min(960px, calc(100% - 40px));
   }
 

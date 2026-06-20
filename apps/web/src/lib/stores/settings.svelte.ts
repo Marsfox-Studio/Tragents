@@ -2,8 +2,10 @@ import type {
   AgentAssignment,
   AppSettings,
   BrandPalette,
+  GitHubBackupSettings,
   LanguageCode,
   ModeKey,
+  PersonalizationSettings,
   Pipeline,
   PipelinePreset,
   ThemeMode,
@@ -11,9 +13,34 @@ import type {
 import { ALL_MODE_KEYS, AGENT_PRESETS, makePipeline } from '@tragents/shared';
 import { STORES, idbGet, idbPut } from '../storage/db.js';
 
-const SETTINGS_KEY = 'app-settings';
+export const SETTINGS_KEY = 'app-settings';
 
 const SEED_PIPELINE_NAME = 'Balanced';
+
+function defaultPersonalization(): PersonalizationSettings {
+  return {
+    enabled: true,
+    memoryEnabled: true,
+    projectOnlyMemory: true,
+    autoUpdateMemory: false,
+    tone: 'natural',
+    strategy: 'balanced',
+    audience: '',
+    scenario: '',
+    styleNote: '',
+    constraints: '',
+  };
+}
+
+function defaultGitHubBackup(): GitHubBackupSettings {
+  return {
+    owner: '',
+    repo: '',
+    branch: 'main',
+    path: 'tragents/backup.json',
+    tokenSaved: false,
+  };
+}
 
 function freshDefaults(): AppSettings {
   const seed = makePipeline(SEED_PIPELINE_NAME, 'balanced');
@@ -27,6 +54,8 @@ function freshDefaults(): AppSettings {
     defaultTargetLanguage: 'zh',
     pipelines: [seed],
     modeAssignments,
+    personalization: defaultPersonalization(),
+    githubBackup: defaultGitHubBackup(),
   };
 }
 
@@ -43,6 +72,14 @@ function migrate(stored: unknown): AppSettings {
     ...fresh,
     ...(s as Partial<AppSettings>),
     theme: { ...fresh.theme, ...((s.theme as Partial<typeof fresh.theme>) ?? {}) },
+    personalization: {
+      ...fresh.personalization,
+      ...((s.personalization as Partial<PersonalizationSettings>) ?? {}),
+    },
+    githubBackup: {
+      ...fresh.githubBackup,
+      ...((s.githubBackup as Partial<GitHubBackupSettings>) ?? {}),
+    },
   };
 
   // Migrate legacy single-pipeline shape.
@@ -130,6 +167,22 @@ class SettingsStore {
     await this.save();
   }
 
+  async updatePersonalization(patch: Partial<PersonalizationSettings>) {
+    this.current.personalization = {
+      ...this.current.personalization,
+      ...patch,
+    };
+    await this.save();
+  }
+
+  async updateGitHubBackup(patch: Partial<GitHubBackupSettings>) {
+    this.current.githubBackup = {
+      ...this.current.githubBackup,
+      ...patch,
+    };
+    await this.save();
+  }
+
   async setUILanguage(code: LanguageCode) {
     this.current.uiLanguage = code;
     await this.save();
@@ -149,7 +202,6 @@ class SettingsStore {
     return this.current.pipelines.find((p) => p.id === id);
   }
 
-  /** Resolve which pipeline backs a given mode, falling back to the first. */
   pipelineForMode(mode: ModeKey): Pipeline | undefined {
     const assigned = this.current.modeAssignments[mode];
     if (assigned) {

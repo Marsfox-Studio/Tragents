@@ -24,9 +24,6 @@ async function getOrCreateDeviceKey(): Promise<CryptoKey> {
   return key;
 }
 
-/**
- * Encrypt a UTF-8 string. Returns iv||ciphertext as a single Uint8Array.
- */
 export async function encryptString(plaintext: string): Promise<Uint8Array> {
   const key = await getOrCreateDeviceKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -39,9 +36,6 @@ export async function encryptString(plaintext: string): Promise<Uint8Array> {
   return out;
 }
 
-/**
- * Decrypt a blob produced by encryptString. Returns the original UTF-8 string.
- */
 export async function decryptString(blob: Uint8Array): Promise<string> {
   const key = await getOrCreateDeviceKey();
   const iv = blob.slice(0, 12);

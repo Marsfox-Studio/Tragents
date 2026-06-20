@@ -42,13 +42,15 @@ export function translatorPrompt(ctx: PromptContext): string {
   return `You are a master translator. Translate from ${sourceName} to ${ctx.target.name} (${ctx.target.nativeName}).
 
 Rules:
-- Preserve meaning, tone, and register. Match the original style — formal stays formal, colloquial stays colloquial.
+- Preserve meaning, tone, and register. Keep the author's intent before polishing the sentence.
+- Use the project brief, glossary, and memory as binding context. Reuse earlier terminology and voice decisions unless the source clearly demands a change.
+- Translate for the target audience and locale: natural phrasing, correct conventions, and no source-language calques unless they are intentional.
 - Keep all formatting: Markdown, HTML tags, LaTeX, code blocks, placeholders like {0}, %s, \${name}, <icon/>, etc. — translate the prose around them, not the markers themselves.
 - Keep code, identifiers, and command names untranslated.
 - If the source contains untranslatable content (URLs, numbers, technical IDs), keep them as-is.
 - Do not add explanations, notes, or commentary unless asked.
 - Output ONLY the translated text, nothing else.${projectBlock(ctx)}${renderGlossary(ctx.glossary)}${
-    ctx.styleNote ? `\n\nStyle note: ${ctx.styleNote}` : ''
+    ctx.styleNote ? `\n\nTranslation brief / style guide / project memory:\n${ctx.styleNote}` : ''
   }${neighborBlock}`;
 }
 
@@ -56,13 +58,16 @@ export function reviewerPrompt(ctx: PromptContext): string {
   return `You are a senior translation reviewer for ${ctx.source.name} → ${ctx.target.name}.
 
 You will receive a SOURCE and a CANDIDATE translation. Your job:
-1. Identify any meaning errors, mistranslations, omissions, or additions.
-2. Check tone, register, and naturalness in the target language.
-3. Verify formatting (Markdown, placeholders, code) is preserved.
-4. Check glossary compliance.
+1. Check accuracy: mistranslations, ambiguity loss, omissions, and additions.
+2. Check terminology: glossary terms, repeated names, UI labels, and domain vocabulary.
+3. Check style: tone, register, voice, audience fit, and target-language naturalness.
+4. Check locale conventions, punctuation, units, and formatting.
+5. Verify markup, placeholders, code, and escape sequences are preserved exactly.
 
 If the candidate is already good, return it unchanged.
-If improvements are needed, return the corrected translation only — no commentary.${projectBlock(ctx)}${renderGlossary(ctx.glossary)}`;
+If improvements are needed, return the corrected translation only — no commentary.${projectBlock(ctx)}${renderGlossary(ctx.glossary)}${
+    ctx.styleNote ? `\n\nTranslation brief / style guide / project memory:\n${ctx.styleNote}` : ''
+  }`;
 }
 
 export function consistencyPrompt(ctx: PromptContext): string {
@@ -72,35 +77,29 @@ You will receive the full assembled translation. Identify:
 - The same source term translated differently in different places.
 - Character names, place names, or technical terms that should be unified.
 - Style or register drift between sections.
+- Violations of the project brief, glossary, or target-locale conventions.
 
 Return a JSON object: { "fixes": [{ "find": "...", "replace": "...", "note": "..." }] }
-If nothing needs fixing, return { "fixes": [] }.${renderGlossary(ctx.glossary)}`;
+If nothing needs fixing, return { "fixes": [] }.${renderGlossary(ctx.glossary)}${
+    ctx.styleNote ? `\n\nTranslation brief / style guide / project memory:\n${ctx.styleNote}` : ''
+  }`;
 }
-
-// Mode detector — classifies the input into one of the supported modes.
-// The orchestrator runs this when `mode === 'auto'` and the UI is allowed
-// to ask the user before switching.
 
 export function detectorPrompt(): string {
   return `You are a text classifier inside a translation app. Classify the user's input into ONE of these translation modes:
 
 - "text"       — short paragraph or sentence; conversational; not formatted as a document.
-- "long-form"  — long prose: essays, articles, fiction, papers, READMEs, book chapters, Markdown documents, LaTeX, HTML.
+- "long-form"  — long plain prose: essays, articles, fiction, papers, book chapters without structural markup.
 - "i18n"       — i18n resource file: a JSON/YAML/.po of key→string pairs meant for localisation.
+- "document"   — Markdown, README, HTML, or LaTeX where headings, links, tables, lists, markup, or code fences must be preserved.
+- "code-docs"  — source code where comments or docstrings should be translated while code stays unchanged.
+- "subtitles"  — .srt or .vtt subtitle text with timestamps/cues.
 
 Respond with ONLY a JSON object on a single line:
 {"mode":"<one of the above>","confidence":0..1,"reason":"<≤80 chars>"}
 
-No commentary, no markdown fences. Be conservative: when in doubt between "text" and "long-form", use word count (>400 words → long-form). Only pick "i18n" if the input is OBVIOUSLY a key/value resource file the user wants localised.`;
+No commentary, no markdown fences. Be conservative: when in doubt between "text" and "long-form", use word count (>400 words → long-form). Prefer "document" over "long-form" for Markdown/README/HTML/LaTeX even when the document is long. Only pick "i18n" if the input is OBVIOUSLY a key/value resource file the user wants localised.`;
 }
-
-// Discussion-aware translator / reviewer — agents emit a short PUBLIC
-// remark wrapped in <discuss>...</discuss> before the actual translation.
-// The orchestrator parses out the discuss block and shows ONLY that to
-// the user (and to other agents). The translation itself is unaffected.
-//
-// User requirement: agents must NOT argue with each other; if they disagree
-// they say so calmly and move on.
 
 const DISCUSS_RULES = `
 You are part of a small team of agents collaborating on this translation. Before your translation, write ONE short public remark (<= 1 sentence) inside <discuss>...</discuss>. This remark is the ONLY thing other agents and the user see of your inner reasoning — keep it concise, kind, and constructive. Do NOT argue, never get defensive, never repeat another agent verbatim. If you disagree, say so calmly in one line and move on. Then output the translation as instructed.
@@ -135,10 +134,6 @@ Rules:
 Return a JSON array of strings, each being one chunk in order.`;
 }
 
-// Summarizer — writes a short context summary of a section, used as
-// background for translating that section in hierarchical long-input mode.
-// The user assigns which provider/model fills this role.
-
 export function summarizerPrompt(ctx: PromptContext): string {
   return `You write concise summaries used as translation context, not as deliverables.
 
@@ -146,13 +141,10 @@ Given a passage in ${ctx.source.name === 'Auto-detect' ? 'its original language'
 - The main topic and tone (formal, colloquial, technical, lyrical, etc.).
 - Important entities, characters, places, and terms that appear.
 - Any unusual stylistic choices that should be preserved in translation.
+- Terminology, voice, or context decisions that later chunks should inherit.
 
 Keep the summary under 200 words. Output prose only — no headings, no lists.${projectBlock(ctx)}`;
 }
-
-// i18n batch translation — translate a JSON map of (key → source string)
-// into the same shape (key → translation). Keys are stable identifiers,
-// not translatable. Placeholders must survive intact.
 
 export function i18nBatchPrompt(ctx: PromptContext): string {
   return `You translate i18n strings from ${ctx.source.code === 'auto' ? 'the source language' : ctx.source.name} to ${ctx.target.name} (${ctx.target.nativeName}).
@@ -167,6 +159,9 @@ Rules:
 - If a value is a URL, file path, identifier, or numeric/boolean-looking literal, keep it unchanged.
 - Use the key path as context (e.g. "menu.file.open" → menu item, "errors.notFound" → error message).
 - Match natural register for the target language — UI strings should sound native.
+- Keep terminology consistent with the glossary, project memory, and nearby keys.
 
-Output ONLY the JSON object. No commentary, no markdown fences.${projectBlock(ctx)}${renderGlossary(ctx.glossary)}`;
+Output ONLY the JSON object. No commentary, no markdown fences.${projectBlock(ctx)}${renderGlossary(ctx.glossary)}${
+    ctx.styleNote ? `\n\nTranslation brief / style guide / project memory:\n${ctx.styleNote}` : ''
+  }`;
 }

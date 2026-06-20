@@ -28,5 +28,6 @@ desktop.ini
 .claude/
 .codex/
 .agents/
+.playwright-mcp/
 
 src-tauri/target/
