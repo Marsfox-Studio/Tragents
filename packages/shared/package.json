@@ -1,6 +1,6 @@
 {
   "name": "@tragents/shared",
-  "version": "0.10.1",
+  "version": "0.10.5",
   "private": true,
   "description": "Shared types, prompts, and constants for tragents.",
   "type": "module",

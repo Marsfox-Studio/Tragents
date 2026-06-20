@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="build" src="https://img.shields.io/github/actions/workflow/status/Marsfox-Studio/Tragents/ci.yml?branch=main&label=build&style=for-the-badge" />
-  <img alt="release" src="https://img.shields.io/badge/release-v0.10.1-2f6fed?style=for-the-badge" />
+  <img alt="release" src="https://img.shields.io/badge/release-v0.10.5-2f6fed?style=for-the-badge" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=for-the-badge" />
   <img alt="svelte" src="https://img.shields.io/badge/Svelte-5.x-ff3e00?style=for-the-badge" />
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-11.x-f69220?style=for-the-badge" />
@@ -64,7 +64,8 @@ glossaries, checkpoints, active tasks, and activity history live in the browser.
 | Mode | Intended input | What Tragents protects |
 | --- | --- | --- |
 | `text` | Short text, messages, UI copy | direct pipeline output |
-| `long-form` | Books, papers, articles, drafts | chunk order, context, consistency |
+| `long-form` | Papers, articles, essays, drafts | chunk order, context, consistency |
+| `book` | Multi-chapter manuscripts and fiction/non-fiction drafts | book index, chapter summaries, names, voice, cross-chapter consistency |
 | `document` | Markdown, HTML, LaTeX | document structure and markup |
 | `i18n` | JSON, YAML, `.po`, Android XML, iOS `.strings`, `.properties`, Fluent | keys, placeholders, write-back shape |
 | `code-docs` | TS/JS, Python, Go, Rust comments and docstrings | source code outside comments |

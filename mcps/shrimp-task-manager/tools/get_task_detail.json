@@ -1,0 +1,19 @@
+{
+  "name": "get_task_detail",
+  "description": "Retrieve complete detailed information of a task based on task ID, including untruncated implementation guides and verification criteria\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string",
+        "minLength": 1,
+        "description": "欲檢視詳情的任務ID"
+      }
+    },
+    "required": [
+      "taskId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

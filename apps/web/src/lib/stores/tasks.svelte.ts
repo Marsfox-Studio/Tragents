@@ -1,6 +1,5 @@
-import type { TranslationMode } from '@tragents/shared';
+import type { DiscussionTurn, TranslationMode } from '@tragents/shared';
 import { STORES, idbDelete, idbGetAll, idbPut } from '../storage/db.js';
-import type { DiscussionTurn } from '../components/DiscussionStream.svelte';
 
 /**
  * Persisted translation task — the live state of one running or finished
@@ -23,7 +22,7 @@ export interface PersistedTask {
   source: string;
   target: string;
   phase?: 'chunk' | 'parse' | 'summarize' | 'translate' | 'review' | 'consistency' | 'assemble';
-  progress?: { current: number; total: number };
+  progress?: { current: number; total: number; label?: string };
   meta?: { mode: string; pipelineName: string; agentCount: number; ms: number };
   contextInherited?: string[];
   discussionEnabled: boolean;
@@ -81,6 +80,10 @@ class TasksStore {
     } catch (err) {
       console.error('Failed to delete task', err);
     }
+  }
+
+  async removeForProject(projectId: string) {
+    await this.remove(taskIdFor(projectId));
   }
 
   /**

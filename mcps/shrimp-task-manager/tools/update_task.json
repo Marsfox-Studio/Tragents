@@ -1,0 +1,90 @@
+{
+  "name": "update_task",
+  "description": "Update task content, including name, description and notes, dependent tasks, related files, implementation guide, and verification criteria, completed tasks only allow updating summary and related files\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+        "description": "待更新任務的唯一標識符，必須是系統中存在且未完成的任務ID"
+      },
+      "name": {
+        "type": "string",
+        "description": "任務的新名稱（選填）"
+      },
+      "description": {
+        "type": "string",
+        "description": "任務的新描述內容（選填）"
+      },
+      "notes": {
+        "type": "string",
+        "description": "任務的新補充說明（選填）"
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "任務的新依賴關係（選填）"
+      },
+      "relatedFiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "文件路徑，可以是相對於項目根目錄的路徑或絕對路徑"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "TO_MODIFY",
+                "REFERENCE",
+                "CREATE",
+                "DEPENDENCY",
+                "OTHER"
+              ],
+              "description": "文件與任務的關係類型 (TO_MODIFY, REFERENCE, CREATE, DEPENDENCY, OTHER)"
+            },
+            "description": {
+              "type": "string",
+              "description": "文件的補充描述（選填）"
+            },
+            "lineStart": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "相關代碼區塊的起始行（選填）"
+            },
+            "lineEnd": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "相關代碼區塊的結束行（選填）"
+            }
+          },
+          "required": [
+            "path",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "description": "與任務相關的文件列表，用於記錄與任務相關的代碼文件、參考資料、要建立的檔案等（選填）"
+      },
+      "implementationGuide": {
+        "type": "string",
+        "description": "任務的新實現指南（選填）"
+      },
+      "verificationCriteria": {
+        "type": "string",
+        "description": "任務的新驗證標準（選填）"
+      }
+    },
+    "required": [
+      "taskId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -4,8 +4,8 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { page } from '$app/state';
-  import type { ModeKey, TranslationMode } from '@tragents/shared';
-  import type { OrchestratorEvent } from '@tragents/core';
+  import type { CorrectionAction, ModeKey, TranslationMode } from '@tragents/shared';
+  import { detectMode, type OrchestratorEvent } from '@tragents/core';
   import Logo from '$lib/components/Logo.svelte';
   import Brand from '$lib/components/Brand.svelte';
   import ChatInput from '$lib/components/ChatInput.svelte';
@@ -14,7 +14,7 @@
   import PtpWorkspace from '$lib/components/PtpWorkspace.svelte';
   import QuestionDialog from '$lib/components/QuestionDialog.svelte';
   import DiscussionStream from '$lib/components/DiscussionStream.svelte';
-  import { settings, providers, projects, tasks, taskIdFor } from '$lib/stores';
+  import { settings, providers, projects, tasks, taskIdFor, memories } from '$lib/stores';
   import type { PersistedTask } from '$lib/stores';
   import {
     NoProviderError,
@@ -41,6 +41,10 @@
     const p = currentProject;
     const id = p?.id ?? '__none__';
     if (id !== lastSyncedProjectId) {
+      if (lastSyncedProjectId !== null && task?.status === 'running') {
+        activeRunId += 1;
+        aborter?.abort();
+      }
       lastSyncedProjectId = id;
       if (p) {
         source = p.sourceLanguage;
@@ -72,8 +76,13 @@
 
   let task = $state<PersistedTask | null>(null);
   let aborter: AbortController | null = null;
+  let activeRunId = 0;
   let lastAgentId = $state<string | undefined>(undefined);
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  let correctionAction = $state<CorrectionAction>('correction');
+  let correctionNote = $state('');
+  let correctionRevision = $state('');
+  let correctionSaved = $state(false);
 
   function schedulePersist() {
     if (!task) return;
@@ -110,6 +119,7 @@
   let lastRestoredProjectId = $state<string | null>(null);
   $effect(() => {
     if (!tasks.loaded) return;
+    if (projectId && projects.loaded && !currentProject) return;
     const id = taskIdFor(projectId);
     if (id === lastRestoredProjectId) return;
     lastRestoredProjectId = id;
@@ -123,6 +133,13 @@
   });
 
   let pendingMessages = $state<string[]>([]);
+
+  $effect(() => {
+    if (!projectId || !projects.loaded || currentProject) return;
+    task = null;
+    pendingMessages = [];
+    goto(`${base}/`, { replaceState: true });
+  });
 
   let ptpAddAndTranslate = $state<((s: string) => Promise<void>) | undefined>(undefined);
   let ptpBusy = $state(false);
@@ -151,25 +168,30 @@
     }
   });
 
-  function handleEvent(e: OrchestratorEvent) {
+  function handleEvent(e: OrchestratorEvent, runId = activeRunId) {
+    if (runId !== activeRunId) return;
     if (!task) return;
     if (e.type === 'mode') {
       task.resolvedMode = e.mode;
     } else if (e.type === 'phase') {
       task.phase = e.phase;
-      // Each phase produces a fresh output that REPLACES the previous phase's
-      // output. Without this reset, translator + reviewer streams concatenate
-      // and the user sees duplicated translations (the "三个你好" bug).
-      task.output = '';
+      const keepBookOutput =
+        task.resolvedMode === 'book' && (e.phase === 'consistency' || e.phase === 'assemble');
+      const keepDraftOutput = e.phase === 'review' || e.phase === 'consistency' || e.phase === 'assemble';
+      if (!keepBookOutput && !keepDraftOutput && !task.output) task.output = '';
       lastAgentId = undefined;
       if (e.phase !== 'translate' && e.phase !== 'review') task.progress = undefined;
     } else if (e.type === 'progress') {
-      task.progress = { current: e.current, total: e.total };
+      task.progress = { current: e.current, total: e.total, label: e.label };
+    } else if (e.type === 'output') {
+      task.output = e.output;
     } else if (e.type === 'agentStart') {
-      // For non-chunked text mode: each new agent (e.g. reviewer 1 → reviewer 2)
-      // replaces the previous agent's output. Chunked agents (long-form) append
-      // because each chunk contributes a different part of the assembled result.
-      if (e.chunkIndex === undefined && e.agentId !== lastAgentId) {
+      if (
+        !task.output &&
+        e.chunkIndex === undefined &&
+        e.agentId !== lastAgentId &&
+        !(task.resolvedMode === 'book' && e.role === 'consistency')
+      ) {
         task.output = '';
       }
       lastAgentId = e.agentId;
@@ -192,12 +214,16 @@
 
   async function runTranslation(text: string, runMode: TranslationMode) {
     const lookup: ModeKey =
-      !runMode || runMode === 'auto' ? 'text' : (runMode as ModeKey);
+      !runMode || runMode === 'auto' ? detectMode(text) : (runMode as ModeKey);
     const pipeline = settings.pipelineForMode(lookup);
     const conversational = pipeline
-      ? pipeline.translators + pipeline.reviewers > 1
+      ? pipeline.translators + pipeline.reviewers > 1 && pipeline.preset !== 'fast'
       : false;
     const contextPack = previewTranslationContext(currentProject?.id);
+    correctionAction = 'correction';
+    correctionNote = '';
+    correctionRevision = '';
+    correctionSaved = false;
 
     const now = Date.now();
     task = {
@@ -218,6 +244,7 @@
     };
     flushPersist();
     aborter = new AbortController();
+    const runId = ++activeRunId;
     lastAgentId = undefined;
 
     try {
@@ -230,14 +257,14 @@
         projectId: currentProject?.id,
         signal: aborter.signal,
         onDelta: (delta) => {
-          if (task) {
+          if (task && runId === activeRunId) {
             task.output += delta;
             schedulePersist();
           }
         },
-        onEvent: handleEvent,
+        onEvent: (event) => handleEvent(event, runId),
       });
-      if (task) {
+      if (task && runId === activeRunId) {
         task.status = 'done';
         task.resolvedMode = result.mode;
         task.meta = {
@@ -246,7 +273,7 @@
           agentCount: result.agentCount,
           ms: result.durationMs,
         };
-        if (result.mode === 'i18n' || !task.output) task.output = result.output;
+        if (task.output !== result.output) task.output = result.output;
         task.contextInherited = result.contextPack?.inherited ?? task.contextInherited ?? [];
       }
     } catch (err) {
@@ -254,7 +281,7 @@
         goto(`${base}/settings`);
         return;
       }
-      if (task) {
+      if (task && runId === activeRunId) {
         const aborted = (err as Error)?.name === 'AbortError';
         task.status = aborted ? 'cancelled' : 'failed';
         task.error = aborted
@@ -264,11 +291,13 @@
             : String(err);
       }
     } finally {
-      aborter = null;
-      flushPersist();
+      if (runId === activeRunId) {
+        aborter = null;
+        flushPersist();
+      }
     }
 
-    if (pendingMessages.length > 0) {
+    if (runId === activeRunId && pendingMessages.length > 0) {
       const next = pendingMessages[0]!;
       pendingMessages = pendingMessages.slice(1);
       setTimeout(() => runTranslation(next, mode), 250);
@@ -331,7 +360,7 @@
     if (!pendingDetect) return;
     const t = pendingDetect.text;
     pendingDetect = null;
-    runTranslation(t, 'text');
+    runTranslation(t, 'auto');
   }
 
   function dismissDetect() {
@@ -401,6 +430,32 @@
     }
   }
 
+  async function saveCorrectionMemory() {
+    const note = correctionNote.trim();
+    const project = currentProject;
+    const currentTask = task;
+    if (!note || !project || !currentTask) return;
+    const personalization = settings.current.personalization;
+    if (!personalization.enabled || !personalization.memoryEnabled) return;
+    await memories.appendCorrection(project.id, {
+      action: correctionAction,
+      sourcePreview: currentTask.input.replace(/\s+/g, ' ').trim().slice(0, 360),
+      modelOutputPreview: (currentTask.output ?? '').replace(/\s+/g, ' ').trim().slice(0, 360),
+      userRevision: correctionRevision.trim() || undefined,
+      lesson: note,
+    });
+    correctionSaved = true;
+    correctionNote = '';
+    correctionRevision = '';
+    if (task) {
+      task.contextInherited = [
+        ...(task.contextInherited ?? []),
+        `User correction: ${note}`,
+      ].slice(-12);
+      flushPersist();
+    }
+  }
+
   function modeKey(m: string): string {
     return m
       .split('-')
@@ -409,6 +464,11 @@
   }
 
   const phaseLabel = $derived(task?.phase ? i18n.t(`home.phase.${task.phase}`) : '');
+  const progressLabel = $derived.by(() => {
+    if (task?.progress?.label === 'book sections') return i18n.t('home.bookSectionLabel');
+    if (task?.progress?.label === 'book chunks') return i18n.t('home.bookChunkLabel');
+    return i18n.t('home.chunkLabel');
+  });
   const showTask = $derived(task !== null);
 
   const detectQuestion = $derived.by(() => {
@@ -575,7 +635,7 @@
               <dd>{task.meta.agentCount}</dd>
             {/if}
             {#if task.progress}
-              <dt>{i18n.t('home.chunkLabel')}</dt>
+              <dt>{progressLabel}</dt>
               <dd>{task.progress.current}/{task.progress.total}</dd>
             {/if}
             {#if task.meta?.ms}
@@ -603,6 +663,52 @@
             </div>
           {/if}
 
+          {#if currentProject && task.status !== 'running' && settings.current.personalization.enabled && settings.current.personalization.memoryEnabled}
+            <div class="correction-box">
+              <label for="correction-note">{i18n.t('home.correctionTitle')}</label>
+              <select
+                value={correctionAction}
+                onchange={(e) => {
+                  correctionAction = (e.currentTarget as HTMLSelectElement)
+                    .value as CorrectionAction;
+                  correctionSaved = false;
+                }}
+                aria-label={i18n.t('home.correctionAction')}
+              >
+                <option value="correction">{i18n.t('home.correctionActionCorrection')}</option>
+                <option value="rejection">{i18n.t('home.correctionActionRejection')}</option>
+                <option value="rewrite-request">{i18n.t('home.correctionActionRewrite')}</option>
+                <option value="final-edit">{i18n.t('home.correctionActionFinalEdit')}</option>
+              </select>
+              <textarea
+                id="correction-note"
+                rows="3"
+                bind:value={correctionNote}
+                placeholder={i18n.t('home.correctionPlaceholder')}
+                oninput={() => (correctionSaved = false)}
+              ></textarea>
+              <textarea
+                rows="3"
+                bind:value={correctionRevision}
+                placeholder={i18n.t('home.correctionRevisionPlaceholder')}
+                oninput={() => (correctionSaved = false)}
+              ></textarea>
+              <div class="correction-row">
+                {#if correctionSaved}
+                  <span>{i18n.t('home.correctionSaved')}</span>
+                {/if}
+                <Button
+                  variant="subtle"
+                  size="sm"
+                  onclick={saveCorrectionMemory}
+                  disabled={!correctionNote.trim()}
+                >
+                  {i18n.t('home.correctionSave')}
+                </Button>
+              </div>
+            </div>
+          {/if}
+
           <div class="status-actions">
             {#if task.status === 'running'}
               <Button variant="subtle" size="sm" onclick={stop}>
@@ -622,7 +728,7 @@
           </div>
         </section>
 
-        {#if task.discussionEnabled}
+        {#if task.discussionEnabled && (task.status === 'running' || task.discussion.length > 0)}
           <div class="side-discussion">
             <DiscussionStream
               turns={task.discussion}
@@ -633,7 +739,7 @@
           </div>
         {:else}
           <div class="side-hint">
-            <p>{i18n.t('home.fastModeHint')}</p>
+            <p>{task.discussionEnabled ? i18n.t('home.discussionEmpty') : i18n.t('home.fastModeHint')}</p>
           </div>
         {/if}
 
@@ -1073,6 +1179,56 @@
     font-size: 12px;
     line-height: 1.45;
     overflow-wrap: anywhere;
+  }
+
+  .correction-box {
+    border-top: 1px solid var(--tg-border);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .correction-box label {
+    color: var(--tg-fg-subtle);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .correction-box select,
+  .correction-box textarea {
+    width: 100%;
+    border: 1px solid var(--tg-border);
+    border-radius: 10px;
+    background: var(--tg-bg-input);
+    color: var(--tg-fg);
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 8px 9px;
+  }
+  .correction-box select {
+    min-height: 36px;
+  }
+  .correction-box textarea {
+    min-height: 68px;
+    resize: vertical;
+  }
+  .correction-box select:focus,
+  .correction-box textarea:focus {
+    outline: none;
+    border-color: var(--tg-primary);
+    box-shadow: 0 0 0 2px var(--tg-ring);
+  }
+  .correction-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .correction-row span {
+    color: var(--tg-accent);
+    font-size: 12px;
   }
 
   .chip {

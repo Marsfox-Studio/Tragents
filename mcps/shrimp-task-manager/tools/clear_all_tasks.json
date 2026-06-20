@@ -1,0 +1,18 @@
+{
+  "name": "clear_all_tasks",
+  "description": "Clear incomplete tasks and reset the task list\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "confirm": {
+        "type": "boolean",
+        "description": "確認刪除所有未完成的任務（此操作不可逆）"
+      }
+    },
+    "required": [
+      "confirm"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

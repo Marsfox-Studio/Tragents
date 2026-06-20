@@ -11,6 +11,7 @@ export type TranslationMode =
   | 'auto'
   | 'text'
   | 'long-form'
+  | 'book'
   | 'i18n'
   | 'document'
   | 'code-docs'
@@ -25,7 +26,7 @@ export interface ModeOptions {
   format?: I18nFormat;
 }
 
-export type PipelinePreset = 'fast' | 'balanced' | 'quality' | 'literary' | 'custom';
+export type PipelinePreset = 'fast' | 'balanced' | 'quality' | 'literary' | 'book' | 'custom';
 
 export interface AgentAssignment {
   providerId: string;
@@ -141,8 +142,7 @@ export interface PtpRow {
   /** Error message if status === 'failed'. */
   error?: string;
   /** Short public remarks from each agent during translation, captured for
-   *  the per-row discussion popover. Only present when the project's
-   *  pipeline is conversational (>1 translator+reviewer). */
+   *  the per-row discussion popover when the pipeline is conversational. */
   discussion?: Array<{
     agentId: string;
     agentLabel: string;
@@ -228,6 +228,16 @@ export interface ChatSession {
   updatedAt: number;
 }
 
+export interface DiscussionTurn {
+  id: string;
+  agentId: string;
+  agentLabel: string;
+  role: 'translator' | 'reviewer';
+  text: string;
+  chunkIndex?: number;
+  timestamp: number;
+}
+
 export interface ActivityRecord {
   id: string;
   projectId?: string;
@@ -281,10 +291,24 @@ export interface GitHubBackupSettings {
   lastBackupAt?: string;
 }
 
+export type CorrectionAction = 'correction' | 'rejection' | 'rewrite-request' | 'final-edit';
+
+export interface ProjectCorrectionMemory {
+  id: string;
+  createdAt: number;
+  action: CorrectionAction;
+  sourcePreview: string;
+  modelOutputPreview: string;
+  userRevision?: string;
+  lesson: string;
+}
+
 export interface ProjectMemory {
   projectId: string;
   styleDecisions: string[];
   terminologyDecisions: string[];
+  correctionDecisions: string[];
+  correctionHistory: ProjectCorrectionMemory[];
   contextSummary?: string;
   voiceNotes: string[];
   updatedAt: number;

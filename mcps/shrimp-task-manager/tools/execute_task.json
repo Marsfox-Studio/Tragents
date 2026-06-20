@@ -1,0 +1,19 @@
+{
+  "name": "execute_task",
+  "description": "Retrieve the instructional guidance for a specific task. You will complete the programming task based on this guidance. You must strictly follow the feedback and instructions provided by the tool — it is designed to **guide you toward perfect task completion, not to execute the task for you**. Severe Warning: Calling the executeTask tool does not mean you have completed the task. You must follow the step-by-step guidance returned by the tool to complete the task properly.\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+        "description": "待執行任務的唯一標識符，必須是系統中存在的有效任務ID"
+      }
+    },
+    "required": [
+      "taskId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

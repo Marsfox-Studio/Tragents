@@ -1,0 +1,32 @@
+{
+  "name": "verify_task",
+  "description": "## Verify Task\n\nPlease comprehensively check and score according to the requirements in verificationCriteria,\nIf you are missing or have forgotten the verificationCriteria content, please use `get_task_detail` to obtain it.\n\nPlease score according to the following rules:\n\n### Verification Standards\n\n1. **Requirements Compliance(30%)** - Functionality completeness, constraint adherence, edge case handling\n2. **Technical Quality(30%)** - Architectural consistency, code robustness, implementation elegance\n3. **Integration Compatibility(20%)** - System integration, interoperability, compatibility maintenance\n4. **Performance Scalability(20%)** - Performance optimization, load adaptability, resource management\n\n### score Parameter Guidelines\n\nProvide overall score and rating, assessment of each standard, issues and suggestions, and final conclusion.\n\n**Must use the following format to provide scoring results (for system parsing):**\n\n```Scoring\nscore: [number from 0-100]\n```\n\n### summary Parameter Guidelines\n\nIf the score is equal to or greater than 80 points, please provide a task summary\n\n```\nsummary: 'Task completion summary, concise description of implementation results and important decisions'\n```\n\nIf the score is less than 80 points, please provide correction suggestions\n\n```\nsummary: 'List task issues and correction suggestions'\n```\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "taskId": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+        "description": "待驗證任務的唯一標識符，必須是系統中存在的有效任務ID"
+      },
+      "summary": {
+        "type": "string",
+        "minLength": 30,
+        "description": "當分數高於或等於 80分時代表任務完成摘要，簡潔描述實施結果和重要決策，當分數低於 80分時代表缺失或需要修正的部分說明，最少30個字"
+      },
+      "score": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "針對任務的評分，當評分等於或超過80分時自動完成任務"
+      }
+    },
+    "required": [
+      "taskId",
+      "summary",
+      "score"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

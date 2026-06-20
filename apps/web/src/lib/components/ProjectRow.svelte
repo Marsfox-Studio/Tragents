@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { Project } from '@tragents/shared';
   import { findLanguage } from '@tragents/shared';
+  import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import Icon from './Icon.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
-  import { projects } from '$lib/stores';
+  import { activities, checkpoints, glossaries, memories, projects, sessions, tasks } from '$lib/stores';
   import { i18n } from '$lib/i18n.svelte';
 
   interface Props {
@@ -18,6 +19,7 @@
   let editName = $state('');
   let inputEl: HTMLInputElement | undefined = $state();
   let confirmDelete = $state(false);
+  let deleteError = $state('');
 
   const sub = $derived(
     `${findLanguage(project.sourceLanguage)?.code ?? '?'} → ${findLanguage(project.targetLanguage)?.code ?? '?'}`,
@@ -66,12 +68,28 @@
   function requestDeleteProject(e: MouseEvent | KeyboardEvent) {
     e.stopPropagation();
     e.preventDefault();
+    deleteError = '';
     confirmDelete = true;
   }
 
   async function deleteProject() {
+    const cleanup = await Promise.allSettled([
+      tasks.removeForProject(project.id),
+      memories.remove(project.id),
+      checkpoints.removeForProject(project.id),
+      glossaries.removeForProject(project.id),
+      activities.removeForProject(project.id),
+      sessions.removeForProject(project.id),
+    ]);
+    const failed = cleanup.filter((result) => result.status === 'rejected');
+    if (failed.length > 0) {
+      console.error('Failed to delete project data', failed);
+      deleteError = i18n.t('sidebar.deleteFailed');
+      return;
+    }
     await projects.remove(project.id);
     confirmDelete = false;
+    if (active) await goto(`${base}/`, { replaceState: true });
   }
 </script>
 
@@ -133,7 +151,7 @@
 <ConfirmDialog
   open={confirmDelete}
   title={i18n.t('sidebar.delete')}
-  message={i18n.t('sidebar.deleteConfirm', { name: project.name })}
+  message={`${i18n.t('sidebar.deleteConfirm', { name: project.name })}${deleteError ? ` ${deleteError}` : ''}`}
   onConfirm={deleteProject}
   onCancel={() => (confirmDelete = false)}
 />

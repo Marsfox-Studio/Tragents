@@ -23,6 +23,7 @@ export interface DetectedMode {
 const VALID_MODES: readonly ModeKey[] = [
   'text',
   'long-form',
+  'book',
   'i18n',
   'document',
   'code-docs',

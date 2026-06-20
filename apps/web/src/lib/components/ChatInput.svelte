@@ -7,6 +7,7 @@
     type Pipeline,
     type TranslationMode,
   } from '@tragents/shared';
+  import { detectMode } from '@tragents/core';
   import Icon from './Icon.svelte';
   import Chip from './Chip.svelte';
   import { base } from '$app/paths';
@@ -57,6 +58,7 @@
     { id: 'auto' },
     { id: 'text' },
     { id: 'long-form' },
+    { id: 'book' },
     { id: 'i18n' },
     { id: 'document' },
     { id: 'code-docs' },
@@ -71,7 +73,7 @@
       const found = settings.pipelineById(pipelineId);
       if (found) return found;
     }
-    const lookupKey: ModeKey = mode === 'auto' ? 'text' : (mode as ModeKey);
+    const lookupKey: ModeKey = mode === 'auto' ? detectMode(value.trim() || ' ') : (mode as ModeKey);
     return settings.pipelineForMode(lookupKey);
   });
 
@@ -409,6 +411,8 @@
               {i18n.t('chat.modeHintAuto')}
             {:else if m.id === 'long-form'}
               {i18n.t('chat.modeHintLongForm')}
+            {:else if m.id === 'book'}
+              {i18n.t('chat.modeHintBook')}
             {:else if m.id === 'i18n'}
               {i18n.t('chat.modeHintI18n')}
             {:else if m.id === 'document'}

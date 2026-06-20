@@ -5,7 +5,7 @@ import type {
   ProviderConfig,
   TranslationMode,
 } from '@tragents/shared';
-import { i18nBatchPrompt } from '@tragents/shared';
+import { bookIndexPrompt, i18nBatchPrompt } from '@tragents/shared';
 import type { Provider } from '../types.js';
 import { createProvider } from '../providers/registry.js';
 import {
@@ -43,6 +43,7 @@ export type OrchestratorEvent =
   | { type: 'progress'; current: number; total: number; label?: string }
   | { type: 'agentStart'; agentId: string; role: AgentConfig['role']; chunkIndex?: number }
   | { type: 'delta'; agentId: string; delta: string; chunkIndex?: number }
+  | { type: 'output'; output: string }
   | { type: 'agentDone'; agentId: string; output: string; chunkIndex?: number }
   /**
    * One short public remark from a participating agent. Emitted only when the
@@ -72,6 +73,7 @@ export interface PipelineInput {
   projectName?: string;
   projectDescription?: string;
   styleNote?: string;
+  discussionPolicy?: 'brief' | 'risk-only' | 'always';
   signal?: AbortSignal;
   onEvent?: (event: OrchestratorEvent) => void;
 }
@@ -95,6 +97,8 @@ export async function runPipeline(input: PipelineInput): Promise<string> {
         return await runText(input, emit);
       case 'long-form':
         return await runLongForm(input, emit);
+      case 'book':
+        return await runBook(input, emit);
       case 'i18n':
         return await runI18n(input, emit);
       case 'document':
@@ -134,11 +138,6 @@ function requireFirstAgent(input: PipelineInput, role: AgentConfig['role']): Age
   return first;
 }
 
-/**
- * Decide whether this pipeline has enough participants to render a
- * discussion panel. Fast mode (1 translator + 0 reviewer) skips discussion
- * entirely — there's nobody to talk to.
- */
 function isConversational(input: PipelineInput): boolean {
   const translators = getAgentsByRole(input, 'translator').length;
   const reviewers = getAgentsByRole(input, 'reviewer').length;
@@ -159,6 +158,77 @@ function labelFor(input: PipelineInput, agent: AgentConfig): string {
         ? 'Reviewer'
         : agent.role.charAt(0).toUpperCase() + agent.role.slice(1);
   return sameRole.length > 1 ? `${roleName} ${idx + 1}` : roleName;
+}
+
+interface DiscussionNote {
+  agentId: string;
+  agentLabel: string;
+  role: 'translator' | 'reviewer';
+  text: string;
+  chunkIndex?: number;
+}
+
+function discussionContext(notes: DiscussionNote[]): string | undefined {
+  const recent = notes.slice(-14);
+  if (recent.length === 0) return undefined;
+  return recent
+    .map((note) => {
+      const scope = note.chunkIndex === undefined ? '' : `Chunk ${note.chunkIndex + 1} · `;
+      return `- ${scope}${note.agentLabel}: ${note.text}`;
+    })
+    .join('\n');
+}
+
+function makeDiscussionHook(
+  emit: (e: OrchestratorEvent) => void,
+  notes: DiscussionNote[],
+  agentId: string,
+  agentLabel: string,
+  role: 'translator' | 'reviewer',
+  chunkIndex?: number,
+) {
+  return {
+    agentLabel,
+    onRemark: (text: string) => {
+      const note: DiscussionNote = { agentId, agentLabel, role, text, chunkIndex };
+      notes.push(note);
+      emit({
+        type: 'discussionTurn',
+        agentId,
+        agentLabel,
+        role,
+        text,
+        chunkIndex,
+      });
+    },
+  };
+}
+
+function chunkRiskReasons(
+  text: string,
+  index: number,
+  total: number,
+  glossary?: GlossaryEntry[],
+): string[] {
+  const reasons: string[] = [];
+  const sample = text.slice(0, 4000);
+  if (index < 2) reasons.push('opening-section terminology and voice calibration');
+  if (total > 8 && index > 0 && index % 10 === 0) reasons.push('periodic long-project consistency checkpoint');
+  if (/[“”"「」『』].{0,160}[!?！？。]/s.test(sample)) {
+    reasons.push('dialogue or quoted voice that may affect character register');
+  }
+  if (/[?!！？]|--|—|…|\.{3}/.test(sample)) {
+    reasons.push('marked emphasis, ambiguity, or expressive punctuation');
+  }
+  if (/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}\b/.test(sample)) {
+    reasons.push('possible names, places, titles, or proper nouns');
+  }
+  if (/<[^>]+>|\{[A-Za-z0-9_]+\}|%\d?\$?[sd]|```|\[[^\]]+\]\([^)]+\)/.test(sample)) {
+    reasons.push('formatting, placeholder, markup, or link preservation risk');
+  }
+  const glossaryHit = glossary?.find((entry) => entry.source && sample.includes(entry.source));
+  if (glossaryHit) reasons.push(`glossary term appears: ${glossaryHit.source}`);
+  return [...new Set(reasons)].slice(0, 4);
 }
 
 const MAX_PARALLEL_CHUNKS = 4;
@@ -227,42 +297,49 @@ async function mapConcurrent<T>(
 }
 
 async function runText(input: PipelineInput, emit: (e: OrchestratorEvent) => void): Promise<string> {
-  const translatorCfg = requireFirstAgent(input, 'translator');
-  const provider = getProvider(input, translatorCfg.providerId);
+  const translatorCfgs = getAgentsByRole(input, 'translator');
+  if (translatorCfgs.length === 0) {
+    throw new Error('No agent configured for role "translator".');
+  }
   const conversational = isConversational(input);
+  const shouldDiscuss = conversational && (input.discussionPolicy ?? 'risk-only') !== 'brief';
+  const discussionNotes: DiscussionNote[] = [];
 
   emit({ type: 'phase', phase: 'translate' });
-  emit({ type: 'agentStart', agentId: translatorCfg.id, role: 'translator' });
+  let current = '';
 
-  const translatorLabel = labelFor(input, translatorCfg);
-  let current = await translate({
-    provider,
-    model: translatorCfg.modelId,
-    source: input.source,
-    target: input.target,
-    text: input.text,
-    glossary: input.glossary,
-    projectName: input.projectName,
-    projectDescription: input.projectDescription,
-    styleNote: input.styleNote,
-    temperature: translatorCfg.temperature,
-    signal: input.signal,
-    onDelta: (delta) => emit({ type: 'delta', agentId: translatorCfg.id, delta }),
-    discussion: conversational
-      ? {
-          agentLabel: translatorLabel,
-          onRemark: (text) =>
-            emit({
-              type: 'discussionTurn',
-              agentId: translatorCfg.id,
-              agentLabel: translatorLabel,
-              role: 'translator',
-              text,
-            }),
-        }
-      : undefined,
-  });
-  emit({ type: 'agentDone', agentId: translatorCfg.id, output: current });
+  for (let i = 0; i < translatorCfgs.length; i++) {
+    const cfg = translatorCfgs[i]!;
+    const provider = getProvider(input, cfg.providerId);
+    const translatorLabel = labelFor(input, cfg);
+    const candidateContext =
+      i > 0 && current
+        ? `Current candidate from earlier translator pass:\n${current}\n\nRevise it only when your terminology, voice, or format audit finds a better choice.`
+        : undefined;
+
+    emit({ type: 'agentStart', agentId: cfg.id, role: 'translator' });
+    current = await translate({
+      provider,
+      model: cfg.modelId,
+      source: input.source,
+      target: input.target,
+      text: input.text,
+      glossary: input.glossary,
+      projectName: input.projectName,
+      projectDescription: input.projectDescription,
+      styleNote: [input.styleNote, candidateContext].filter(Boolean).join('\n\n') || undefined,
+      discussionContext: shouldDiscuss ? discussionContext(discussionNotes) : undefined,
+      temperature: cfg.temperature,
+      signal: input.signal,
+      onDelta:
+        i === 0 ? (delta) => emit({ type: 'delta', agentId: cfg.id, delta }) : undefined,
+      discussion: shouldDiscuss
+        ? makeDiscussionHook(emit, discussionNotes, cfg.id, translatorLabel, 'translator')
+        : undefined,
+    });
+    emit({ type: 'agentDone', agentId: cfg.id, output: current });
+    emit({ type: 'output', output: current });
+  }
 
   const reviewers = getAgentsByRole(input, 'reviewer');
   if (reviewers.length > 0) {
@@ -283,24 +360,16 @@ async function runText(input: PipelineInput, emit: (e: OrchestratorEvent) => voi
         projectName: input.projectName,
         projectDescription: input.projectDescription,
         styleNote: input.styleNote,
+        discussionContext: shouldDiscuss ? discussionContext(discussionNotes) : undefined,
         temperature: cfg.temperature,
         signal: input.signal,
-        onDelta: (delta) => emit({ type: 'delta', agentId: cfg.id, delta }),
-        discussion: conversational
-          ? {
-              agentLabel: reviewerLabel,
-              onRemark: (text) =>
-                emit({
-                  type: 'discussionTurn',
-                  agentId: cfg.id,
-                  agentLabel: reviewerLabel,
-                  role: 'reviewer',
-                  text,
-                }),
-            }
+        onDelta: undefined,
+        discussion: shouldDiscuss
+          ? makeDiscussionHook(emit, discussionNotes, cfg.id, reviewerLabel, 'reviewer')
           : undefined,
       });
       emit({ type: 'agentDone', agentId: cfg.id, output: current });
+      emit({ type: 'output', output: current });
     }
   }
 
@@ -325,6 +394,9 @@ async function runLongForm(
   }
   const conversational = isConversational(input);
   const limiter = new ProviderLimiter();
+  const chunkDiscussionNotes = Array.from({ length: chunks.length }, () => [] as DiscussionNote[]);
+  const discussionPolicy = input.discussionPolicy ?? 'risk-only';
+  const chunkConcurrency = discussionPolicy === 'always' ? 1 : MAX_PARALLEL_CHUNKS;
 
   let summaries: string[] = [];
   const summarizerCfg = input.agents.find((a) => a.role === 'summarizer');
@@ -359,54 +431,88 @@ async function runLongForm(
   emit({ type: 'progress', current: 0, total: chunks.length });
 
   let translatedDone = 0;
-  const translated = await mapConcurrent(chunks.length, MAX_PARALLEL_CHUNKS, async (i) => {
+  const translatedDrafts: string[] = new Array(chunks.length);
+  let translatedPublished = 0;
+  const publishTranslatedDrafts = () => {
+    while (
+      translatedPublished < chunks.length &&
+      translatedDrafts[translatedPublished] !== undefined
+    ) {
+      translatedPublished += 1;
+    }
+    if (translatedPublished > 0) {
+      emit({
+        type: 'output',
+        output: translatedDrafts.slice(0, translatedPublished).join('\n\n'),
+      });
+    }
+  };
+  const translated = await mapConcurrent(chunks.length, chunkConcurrency, async (i) => {
     const c = chunks[i]!;
-    const cfg = translatorCfgs[i % translatorCfgs.length]!;
-    const provider = getProvider(input, cfg.providerId);
-    const translatorLabel = labelFor(input, cfg);
-    emit({ type: 'agentStart', agentId: cfg.id, role: 'translator', chunkIndex: i });
     const summaryContext = summaries[i]
       ? `Section context summary for this chunk: ${summaries[i]}`
       : undefined;
-    const result = await limiter.run(cfg.providerId, () =>
-      translate({
-        provider,
-        model: cfg.modelId,
-        source: input.source,
-        target: input.target,
-        text: c.text,
-        glossary: input.glossary,
-        projectName: input.projectName,
-        projectDescription: input.projectDescription,
-        contextBefore: c.context?.before,
-        contextAfter: c.context?.after,
-        temperature: cfg.temperature,
-        signal: input.signal,
-        styleNote: [input.styleNote, summaryContext].filter(Boolean).join('\n\n') || undefined,
-        onDelta:
-          chunks.length === 1
-            ? (delta) => emit({ type: 'delta', agentId: cfg.id, delta, chunkIndex: i })
+    const riskReasons = chunkRiskReasons(c.text, i, chunks.length, input.glossary);
+    const deepDiscuss =
+      conversational &&
+      (discussionPolicy === 'always' ||
+        (discussionPolicy === 'risk-only' && riskReasons.length > 0));
+    const chunkDiscussion = conversational && (discussionPolicy === 'brief' || deepDiscuss);
+    const riskContext =
+      riskReasons.length > 0
+        ? `Selected discussion focus for this chunk: ${riskReasons.join('; ')}.`
+        : undefined;
+    const notes = chunkDiscussionNotes[i]!;
+    let current = '';
+
+    const chunkTranslators = deepDiscuss
+      ? translatorCfgs
+      : [translatorCfgs[i % translatorCfgs.length]!];
+    for (let ti = 0; ti < chunkTranslators.length; ti++) {
+      const cfg = chunkTranslators[ti]!;
+      const provider = getProvider(input, cfg.providerId);
+      const translatorLabel = labelFor(input, cfg);
+      const candidateContext =
+        ti > 0 && current
+          ? `Current candidate for this chunk from earlier translator pass:\n${current}\n\nRevise it only when your terminology, voice, or format audit finds a better choice.`
+          : undefined;
+
+      emit({ type: 'agentStart', agentId: cfg.id, role: 'translator', chunkIndex: i });
+      current = await limiter.run(cfg.providerId, () =>
+        translate({
+          provider,
+          model: cfg.modelId,
+          source: input.source,
+          target: input.target,
+          text: c.text,
+          glossary: input.glossary,
+          projectName: input.projectName,
+          projectDescription: input.projectDescription,
+          contextBefore: c.context?.before,
+          contextAfter: c.context?.after,
+          temperature: cfg.temperature,
+          signal: input.signal,
+          styleNote:
+            [input.styleNote, summaryContext, riskContext, candidateContext]
+              .filter(Boolean)
+              .join('\n\n') || undefined,
+          discussionContext: chunkDiscussion ? discussionContext(notes) : undefined,
+          onDelta:
+            chunks.length === 1 && ti === 0
+              ? (delta) => emit({ type: 'delta', agentId: cfg.id, delta, chunkIndex: i })
+              : undefined,
+          discussion: chunkDiscussion
+            ? makeDiscussionHook(emit, notes, cfg.id, translatorLabel, 'translator', i)
             : undefined,
-        discussion: conversational
-          ? {
-              agentLabel: translatorLabel,
-              onRemark: (text) =>
-                emit({
-                  type: 'discussionTurn',
-                  agentId: cfg.id,
-                  agentLabel: translatorLabel,
-                  role: 'translator',
-                  text,
-                  chunkIndex: i,
-                }),
-            }
-          : undefined,
-      }),
-    );
-    emit({ type: 'agentDone', agentId: cfg.id, output: result, chunkIndex: i });
+        }),
+      );
+      emit({ type: 'agentDone', agentId: cfg.id, output: current, chunkIndex: i });
+    }
+    translatedDrafts[i] = current;
+    publishTranslatedDrafts();
     translatedDone += 1;
     emit({ type: 'progress', current: translatedDone, total: chunks.length });
-    return result;
+    return current;
   });
 
   let assembled = translated.join('\n\n');
@@ -416,10 +522,25 @@ async function runLongForm(
     emit({ type: 'phase', phase: 'review' });
     emit({ type: 'progress', current: 0, total: chunks.length });
     let reviewedDone = 0;
-    const reviewed = await mapConcurrent(chunks.length, MAX_PARALLEL_CHUNKS, async (i) => {
+    const reviewedDrafts: string[] = new Array(chunks.length);
+    const publishReviewedDrafts = () => {
+      emit({
+        type: 'output',
+        output: chunks
+          .map((_, index) => reviewedDrafts[index] ?? translated[index] ?? '')
+          .join('\n\n'),
+      });
+    };
+    const reviewed = await mapConcurrent(chunks.length, chunkConcurrency, async (i) => {
       const cfg = reviewerCfgs[i % reviewerCfgs.length]!;
       const provider = getProvider(input, cfg.providerId);
       const reviewerLabel = labelFor(input, cfg);
+      const notes = chunkDiscussionNotes[i] ?? [];
+      const riskReasons = chunkRiskReasons(chunks[i]!.text, i, chunks.length, input.glossary);
+      const shouldDiscuss =
+        conversational &&
+        (discussionPolicy === 'always' ||
+          (discussionPolicy === 'risk-only' && riskReasons.length > 0));
       emit({ type: 'agentStart', agentId: cfg.id, role: 'reviewer', chunkIndex: i });
       const result = await limiter.run(cfg.providerId, () =>
         review({
@@ -432,30 +553,29 @@ async function runLongForm(
           glossary: input.glossary,
           projectName: input.projectName,
           projectDescription: input.projectDescription,
-          styleNote: input.styleNote,
+          styleNote: [
+            input.styleNote,
+            riskReasons.length
+              ? `Review focus: ${riskReasons.join('; ')}.`
+              : undefined,
+          ]
+            .filter(Boolean)
+            .join('\n\n') || undefined,
+          discussionContext: shouldDiscuss ? discussionContext(notes) : undefined,
           temperature: cfg.temperature,
           signal: input.signal,
           onDelta:
             chunks.length === 1
               ? (delta) => emit({ type: 'delta', agentId: cfg.id, delta, chunkIndex: i })
               : undefined,
-          discussion: conversational
-            ? {
-                agentLabel: reviewerLabel,
-                onRemark: (text) =>
-                  emit({
-                    type: 'discussionTurn',
-                    agentId: cfg.id,
-                    agentLabel: reviewerLabel,
-                    role: 'reviewer',
-                    text,
-                    chunkIndex: i,
-                  }),
-              }
+          discussion: shouldDiscuss
+            ? makeDiscussionHook(emit, notes, cfg.id, reviewerLabel, 'reviewer', i)
             : undefined,
         }),
       );
       emit({ type: 'agentDone', agentId: cfg.id, output: result, chunkIndex: i });
+      reviewedDrafts[i] = result;
+      publishReviewedDrafts();
       reviewedDone += 1;
       emit({ type: 'progress', current: reviewedDone, total: chunks.length });
       return result;
@@ -490,6 +610,201 @@ async function runLongForm(
   emit({ type: 'phase', phase: 'assemble' });
   emit({ type: 'done', output: assembled });
   return assembled;
+}
+
+interface BookSection {
+  title: string;
+  text: string;
+}
+
+async function runBook(
+  input: PipelineInput,
+  emit: (e: OrchestratorEvent) => void,
+): Promise<string> {
+  const sections = splitBookSections(input.text);
+  if (sections.length === 0) {
+    emit({ type: 'done', output: '' });
+    return '';
+  }
+
+  const summarizerCfg = input.agents.find((a) => a.role === 'summarizer');
+  if (!summarizerCfg) {
+    throw new Error(
+      'Book mode requires a pipeline with summarizer enabled. Choose the Book preset or enable summarizer for this mode.',
+    );
+  }
+  const summarizerProvider = getProvider(input, summarizerCfg.providerId);
+
+  emit({ type: 'phase', phase: 'summarize' });
+  const bookIndex = await buildBookIndex(input, sections, emit);
+
+  const chapterSummaries: string[] = [];
+  const translatedSections: string[] = [];
+
+  emit({ type: 'phase', phase: 'translate' });
+  emit({ type: 'progress', current: 0, total: sections.length, label: 'book sections' });
+
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i]!;
+    let chapterSummary = '';
+    emit({
+      type: 'agentStart',
+      agentId: summarizerCfg.id,
+      role: 'summarizer',
+      chunkIndex: i,
+    });
+    chapterSummary = await summarize({
+      provider: summarizerProvider,
+      model: summarizerCfg.modelId,
+      source: input.source,
+      target: input.target,
+      text: section.text,
+      projectName: input.projectName,
+      projectDescription: input.projectDescription,
+      signal: input.signal,
+    });
+    chapterSummaries.push(chapterSummary);
+    emit({
+      type: 'agentDone',
+      agentId: summarizerCfg.id,
+      output: chapterSummary,
+      chunkIndex: i,
+    });
+
+    const previousSummary = chapterSummaries[i - 1];
+    const nextPreview = sections[i + 1]?.text.slice(0, 1200);
+    const bookContext = [
+      'Book Pipeline context:',
+      bookIndex ? `Book index:\n${bookIndex}` : undefined,
+      chapterSummary ? `Current section summary:\n${chapterSummary}` : undefined,
+      previousSummary ? `Previous section summary:\n${previousSummary}` : undefined,
+      nextPreview ? `Next section preview for continuity only:\n${nextPreview}` : undefined,
+      'Translate this section as part of the same book. Preserve names, voice, chronology, terminology, chapter headings, and any markup.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const chapterInput: PipelineInput = {
+      ...input,
+      mode: 'long-form',
+      text: section.text,
+      agents: input.agents.filter((a) => a.role !== 'consistency'),
+      styleNote: [input.styleNote, bookContext].filter(Boolean).join('\n\n') || undefined,
+      discussionPolicy: input.discussionPolicy ?? 'risk-only',
+    };
+
+    const translated = await runLongForm(chapterInput, (event) => {
+      if (
+        event.type === 'done' ||
+        event.type === 'delta' ||
+        event.type === 'phase'
+      ) {
+        return;
+      }
+      if (event.type === 'output') {
+        const prefix = translatedSections.join('\n\n');
+        emit({
+          type: 'output',
+          output: [prefix, event.output].filter(Boolean).join('\n\n'),
+        });
+        return;
+      }
+      if (event.type === 'progress') {
+        emit({ ...event, label: 'book chunks' });
+        return;
+      }
+      emit(event);
+    });
+    translatedSections.push(translated);
+    emit({ type: 'output', output: translatedSections.join('\n\n') });
+    emit({ type: 'progress', current: i + 1, total: sections.length, label: 'book sections' });
+  }
+
+  let assembled = translatedSections.join('\n\n');
+  const consistencyCfg = input.agents.find((a) => a.role === 'consistency');
+  if (consistencyCfg) {
+    emit({ type: 'phase', phase: 'consistency' });
+    const provider = getProvider(input, consistencyCfg.providerId);
+    emit({ type: 'agentStart', agentId: consistencyCfg.id, role: 'consistency' });
+    const result = await consistencyCheck({
+      provider,
+      model: consistencyCfg.modelId,
+      source: input.source,
+      target: input.target,
+      assembled,
+      glossary: input.glossary,
+      projectName: input.projectName,
+      projectDescription: input.projectDescription,
+      signal: input.signal,
+    });
+    if (result.rewrite) assembled = result.rewrite;
+    else if (result.fixes && result.fixes.length > 0) assembled = applyFixes(assembled, result.fixes);
+    emit({ type: 'agentDone', agentId: consistencyCfg.id, output: assembled });
+  }
+
+  emit({ type: 'phase', phase: 'assemble' });
+  emit({ type: 'done', output: assembled });
+  return assembled;
+}
+
+async function buildBookIndex(
+  input: PipelineInput,
+  sections: BookSection[],
+  emit: (e: OrchestratorEvent) => void,
+): Promise<string> {
+  const summarizerCfg = input.agents.find((a) => a.role === 'summarizer');
+  if (!summarizerCfg) {
+    throw new Error(
+      'Book mode requires a pipeline with summarizer enabled. Choose the Book preset or enable summarizer for this mode.',
+    );
+  }
+  const provider = getProvider(input, summarizerCfg.providerId);
+  const samples = sections
+    .slice(0, 4)
+    .map((section, i) => `SECTION ${i + 1}: ${section.title}\n${section.text.slice(0, 2500)}`)
+    .join('\n\n---\n\n');
+  emit({ type: 'agentStart', agentId: summarizerCfg.id, role: 'summarizer' });
+  const response = await provider.complete({
+    model: summarizerCfg.modelId,
+    system: bookIndexPrompt({
+      source: input.source,
+      target: input.target,
+      glossary: input.glossary,
+      projectName: input.projectName,
+      projectDescription: input.projectDescription,
+      styleNote: input.styleNote,
+    }),
+    messages: [{ role: 'user', content: samples }],
+    temperature: summarizerCfg.temperature ?? 0.2,
+    signal: input.signal,
+  });
+  emit({ type: 'agentDone', agentId: summarizerCfg.id, output: response.text });
+  return response.text.trim();
+}
+
+function splitBookSections(text: string): BookSection[] {
+  const normalized = text.trim();
+  if (!normalized) return [];
+  const heading =
+    /^(?:#{1,3}\s+)?(?:chapter\s+\d+|chapter\s+[ivxlcdm]+|part\s+\d+|book\s+\d+|第[一二三四五六七八九十百千万\d]+[章节回卷部幕]|序章|终章|尾声).*$/gim;
+  const matches = [...normalized.matchAll(heading)];
+  if (matches.length >= 2) {
+    return matches.map((match, index) => {
+      const start = match.index ?? 0;
+      const end = matches[index + 1]?.index ?? normalized.length;
+      const text = normalized.slice(start, end).trim();
+      return {
+        title: match[0].replace(/^#{1,3}\s+/, '').trim() || `Section ${index + 1}`,
+        text,
+      };
+    });
+  }
+
+  const chunks = chunk(normalized);
+  return chunks.map((c, i) => ({
+    title: `Section ${i + 1}`,
+    text: c.text,
+  }));
 }
 
 async function runI18n(input: PipelineInput, emit: (e: OrchestratorEvent) => void): Promise<string> {

@@ -51,6 +51,7 @@ export const en = {
     rename: 'Rename project',
     delete: 'Delete project',
     deleteConfirm: 'Delete project "{name}" and all its data?',
+    deleteFailed: 'Some project data could not be removed. Please try again.',
     collapse: 'Collapse sidebar',
     expand: 'Expand sidebar',
   },
@@ -76,6 +77,8 @@ export const en = {
     progress: 'Progress',
     phaseLabel: 'Phase',
     chunkLabel: 'Chunks',
+    bookSectionLabel: 'Sections',
+    bookChunkLabel: 'Section chunks',
     pipelineLabel: 'Pipeline',
     agentsLabel: 'Agents',
     durationLabel: 'Duration',
@@ -90,8 +93,20 @@ export const en = {
     statusFailed: 'failed',
     emptyOutput: 'No output yet — submit something to begin.',
     fastModeHint:
-      'Fast pipeline — single translator, no reviewer. The discussion panel is hidden because there is nobody to talk to. Switch to a Balanced or Quality pipeline to see agent chat.',
+      'No active discussion was emitted for this run. Multi-agent text and long-form pipelines discuss disputed terms, voice, and format risks as they work.',
     clearTask: 'Clear',
+    correctionTitle: 'Project experience',
+    correctionAction: 'Correction type',
+    correctionActionCorrection: 'Correction',
+    correctionActionRejection: 'Rejected output',
+    correctionActionRewrite: 'Rewrite request',
+    correctionActionFinalEdit: 'Final edit',
+    correctionPlaceholder:
+      'What should future agents learn? Example: Do not translate this term that way; this character should sound less modern.',
+    correctionRevisionPlaceholder:
+      'Optional: paste the wording you prefer, or the final edited translation.',
+    correctionSave: 'Save memory',
+    correctionSaved: 'Saved',
     phase: {
       chunk: 'splitting…',
       parse: 'parsing…',
@@ -136,6 +151,7 @@ export const en = {
     modeAuto: 'Auto',
     modeText: 'Plain text',
     modeLongForm: 'Long-form',
+    modeBook: 'Book',
     modeI18n: 'i18n strings',
     modeDocument: 'Document',
     modeCodeDocs: 'Code docs',
@@ -143,6 +159,7 @@ export const en = {
     modePtp: 'PTP',
     modeHintAuto: 'Detect mode from input.',
     modeHintLongForm: 'Chunked translation with neighbor-context windows.',
+    modeHintBook: 'Book pipeline: index the manuscript, summarize chapters, translate section by section, and discuss only high-impact consistency points.',
     modeHintI18n: 'JSON, YAML, .po, Android XML, iOS .strings, Properties, and Fluent.',
     modeHintDocument: 'Translate Markdown, HTML, or LaTeX text nodes while preserving structure.',
     modeHintCodeDocs: 'Translate comments and docstrings while leaving code untouched.',
@@ -216,7 +233,10 @@ export const en = {
     removeProviderConfirm: 'Remove provider "{name}"? Existing pipelines that use it will fall back to another configured provider.',
     about: 'About',
     aboutText:
-      'Tragents v0.10.1 · local-first multi-agent translation with project memory, local backup, and optional GitHub private-repo backup. Web build. Desktop and VS Code coming soon.',
+      'Tragents v0.10.5 · local-first multi-agent translation with project memory, local backup, and optional GitHub private-repo backup. Web build. Desktop and VS Code coming soon.',
+    aboutLocal: 'Local-first: projects, glossaries, tasks, activity, backups, and project memory stay in this browser unless you export or sync them.',
+    aboutQuality: 'Built for serious translation: mode-aware parsing, format preservation, reviewer passes, terminology consistency, and correction memory.',
+    aboutCommunity: 'Community',
     sections: {
       appearance: 'Appearance',
       providers: 'Providers',
@@ -258,10 +278,23 @@ export const en = {
       game: 'Game localization',
       technical: 'Technical',
     },
+    toneHints: {
+      natural: 'Clean, readable, close to daily prose.',
+      formal: 'Controlled register for official copy.',
+      academic: 'Precise and citation-friendly.',
+      literary: 'Voice, rhythm, imagery, and subtext.',
+      game: 'Character voice and UI-localized wording.',
+      technical: 'Concise docs with stable terms.',
+    },
     strategies: {
       faithful: 'Faithful',
       balanced: 'Balanced',
       localized: 'Localized',
+    },
+    strategyHints: {
+      faithful: 'Stay close to source wording and structure.',
+      balanced: 'Keep meaning while making the target text read naturally.',
+      localized: 'Adapt idioms, UI copy, and cultural references when needed.',
     },
   },
 
@@ -273,6 +306,9 @@ export const en = {
     keyHint: 'Provider profiles are saved without keys. GitHub tokens stay encrypted on this device.',
     ready: 'Backup ready to import',
     import: 'Import backup',
+    importMode: 'Import mode',
+    mergeImport: 'Merge',
+    replaceImport: 'Replace',
     projects: 'projects',
     glossaries: 'glossaries',
     memories: 'memories',
@@ -331,6 +367,28 @@ export const en = {
     cannotDeleteLast: 'You need at least one pipeline.',
     usedBy: 'Used by',
     noUsages: 'Not assigned to any mode',
+    presets: {
+      fast: {
+        label: 'Fast',
+        description: 'Single translator pass. Lowest cost and latency.',
+      },
+      balanced: {
+        label: 'Balanced',
+        description: 'One translator and one reviewer. Good default.',
+      },
+      quality: {
+        label: 'Quality',
+        description: 'Two translators, two reviewers, consistency pass.',
+      },
+      literary: {
+        label: 'Literary',
+        description: 'More translators and reviewers for voice-sensitive text.',
+      },
+      book: {
+        label: 'Book',
+        description: 'Book index, chapter summaries, selected discussion, global consistency.',
+      },
+    },
   },
 
   ptp: {
@@ -365,6 +423,7 @@ export const en = {
     modes: {
       text: 'Plain text',
       'long-form': 'Long-form',
+      book: 'Book',
       i18n: 'i18n strings',
       document: 'Document',
       'code-docs': 'Code docs',

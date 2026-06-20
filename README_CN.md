@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="build" src="https://img.shields.io/github/actions/workflow/status/Marsfox-Studio/Tragents/ci.yml?branch=main&label=build&style=for-the-badge" />
-  <img alt="release" src="https://img.shields.io/badge/release-v0.10.1-2f6fed?style=for-the-badge" />
+  <img alt="release" src="https://img.shields.io/badge/release-v0.10.5-2f6fed?style=for-the-badge" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=for-the-badge" />
   <img alt="svelte" src="https://img.shields.io/badge/Svelte-5.x-ff3e00?style=for-the-badge" />
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-11.x-f69220?style=for-the-badge" />
@@ -56,7 +56,8 @@ Tragents 处理的是那些“格式和文字同样重要”的翻译任务。
 | 模式 | 适合输入 | Tragents 会重点保护 |
 | --- | --- | --- |
 | `text` | 短文本、消息、UI 文案 | 当前 Pipeline 的直接输出 |
-| `long-form` | 书稿、论文、文章、长帖 | 分片顺序、上下文、一致性 |
+| `long-form` | 论文、文章、长帖、草稿 | 分片顺序、上下文、一致性 |
+| `book` | 多章节书稿、小说、非虚构草稿 | 全书索引、章节摘要、人名声线、跨章节一致性 |
 | `document` | Markdown、HTML、LaTeX | 文档结构和标记 |
 | `i18n` | JSON、YAML、`.po`、Android XML、iOS `.strings`、`.properties`、Fluent | key、占位符、回写形状 |
 | `code-docs` | TS/JS、Python、Go、Rust 注释和 docstring | 注释之外的源码 |

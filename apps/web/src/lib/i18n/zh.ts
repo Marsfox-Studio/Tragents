@@ -52,6 +52,7 @@ export const zh: Dict = {
     rename: '重命名项目',
     delete: '删除项目',
     deleteConfirm: '确定删除项目「{name}」及其所有数据?',
+    deleteFailed: '部分项目数据未能删除，请重试。',
     collapse: '收起侧栏',
     expand: '展开侧栏',
   },
@@ -77,6 +78,8 @@ export const zh: Dict = {
     progress: '进度',
     phaseLabel: '阶段',
     chunkLabel: '分片',
+    bookSectionLabel: '章节',
+    bookChunkLabel: '章节分片',
     pipelineLabel: 'Pipeline',
     agentsLabel: 'Agents',
     durationLabel: '耗时',
@@ -90,8 +93,19 @@ export const zh: Dict = {
     statusFailed: '失败',
     emptyOutput: '尚无输出 —— 提交内容即可开始。',
     fastModeHint:
-      '当前是 Fast pipeline —— 仅一个 translator、无 reviewer，没有讨论对象，因此讨论面板已隐藏。切换到 Balanced 或 Quality pipeline 即可看到 agent 对话。',
+      '本次运行没有产生可显示的讨论。多 agent 的文本和长文 pipeline 会在翻译过程中讨论争议术语、角色语气和格式风险。',
     clearTask: '清除',
+    correctionTitle: '项目经验',
+    correctionAction: '纠错类型',
+    correctionActionCorrection: '纠错',
+    correctionActionRejection: '驳回译文',
+    correctionActionRewrite: '要求重译',
+    correctionActionFinalEdit: '最终修订',
+    correctionPlaceholder:
+      '让后续 agent 记住什么？例如：这个术语不要那样翻；这个角色说话不能太现代。',
+    correctionRevisionPlaceholder: '可选：粘贴你认可的写法，或最终修订后的译文。',
+    correctionSave: '保存记忆',
+    correctionSaved: '已保存',
     phase: {
       chunk: '正在分片……',
       parse: '正在解析……',
@@ -136,6 +150,7 @@ export const zh: Dict = {
     modeAuto: '自动',
     modeText: '纯文本',
     modeLongForm: '长文本',
+    modeBook: '书籍',
     modeI18n: 'i18n 字符串',
     modeDocument: '文档',
     modeCodeDocs: '代码文档',
@@ -143,6 +158,7 @@ export const zh: Dict = {
     modePtp: 'PTP 点对点',
     modeHintAuto: '依输入内容自动判别模式。',
     modeHintLongForm: '语义分片翻译，前后片段互为上下文。',
+    modeHintBook: '书籍级流程：先建立全书索引和章节摘要，再逐章翻译，只在影响一致性的节点精选讨论。',
     modeHintI18n: '支持 JSON、YAML、.po、Android XML、iOS .strings、Properties、Fluent。',
     modeHintDocument: '翻译 Markdown、HTML、LaTeX 的正文节点，同时保留结构。',
     modeHintCodeDocs: '只翻译注释和 docstring，代码本身保持不动。',
@@ -216,7 +232,10 @@ export const zh: Dict = {
     removeProviderConfirm: '删除供应商「{name}」？使用它的 Pipeline 会回退到其他已配置供应商。',
     about: '关于',
     aboutText:
-      'Tragents v0.10.1 · 本地优先的多 agent 翻译，支持项目记忆、本地备份和可选的 GitHub 私有仓库备份。当前为 Web 版，桌面端与 VS Code 扩展即将推出。',
+      'Tragents v0.10.5 · 本地优先的多 agent 翻译，支持项目记忆、本地备份和可选的 GitHub 私有仓库备份。当前为 Web 版，桌面端与 VS Code 扩展即将推出。',
+    aboutLocal: '本地优先：项目、术语表、任务、活动记录、备份和项目记忆默认只保存在这个浏览器里，除非你主动导出或同步。',
+    aboutQuality: '面向严肃翻译：模式感知解析、格式保护、复核流程、术语一致性和用户纠错记忆。',
+    aboutCommunity: '社区',
     sections: {
       appearance: '外观',
       providers: '供应商',
@@ -258,10 +277,23 @@ export const zh: Dict = {
       game: '游戏本地化',
       technical: '技术文档',
     },
+    toneHints: {
+      natural: '顺畅、干净，贴近日常阅读。',
+      formal: '克制、稳重，适合正式文本。',
+      academic: '概念精确，适合论文与研究。',
+      literary: '保留声线、节奏、意象与潜台词。',
+      game: '兼顾角色口吻与 UI 本地化。',
+      technical: '术语稳定，表达简洁。',
+    },
     strategies: {
       faithful: '忠实',
       balanced: '平衡',
       localized: '本地化',
+    },
+    strategyHints: {
+      faithful: '尽量贴近原文措辞和结构。',
+      balanced: '保持含义，同时让译文自然可读。',
+      localized: '必要时改写习语、UI 文案和文化指涉。',
     },
   },
 
@@ -273,6 +305,9 @@ export const zh: Dict = {
     keyHint: '供应商配置会保留，但不包含密钥。GitHub token 只会加密保存在本机。',
     ready: '备份可导入',
     import: '导入备份',
+    importMode: '导入方式',
+    mergeImport: '合并',
+    replaceImport: '替换',
     projects: '项目',
     glossaries: '术语表',
     memories: '记忆',
@@ -300,7 +335,7 @@ export const zh: Dict = {
     sub: '一个 Pipeline 是一套可复用的 agent 编排。不同翻译模式可绑定不同的 Pipeline。',
     new: '新建 Pipeline',
     empty: '暂无 Pipeline。',
-    summary: '{translators}× translator · {reviewers}× reviewer{cons}',
+    summary: '{translators}× 翻译 · {reviewers}× 复核{cons}',
     consistencySuffix: ' · 一致性扫描',
     startFromPreset: '基于预设创建',
     pipelineName: 'Pipeline 名称',
@@ -330,6 +365,28 @@ export const zh: Dict = {
     cannotDeleteLast: '至少保留一个 Pipeline。',
     usedBy: '用于',
     noUsages: '未绑定到任何模式',
+    presets: {
+      fast: {
+        label: '快速',
+        description: '单个翻译 agent，成本和延迟最低。',
+      },
+      balanced: {
+        label: '平衡',
+        description: '一个翻译 agent 加一个复核 agent，适合作为默认。',
+      },
+      quality: {
+        label: '质量',
+        description: '两个翻译、两个复核，并进行一致性扫描。',
+      },
+      literary: {
+        label: '文学',
+        description: '更多 agent 参与，适合声线和风格敏感的文本。',
+      },
+      book: {
+        label: '书籍',
+        description: '全书索引、章节摘要、精选讨论和全局一致性。',
+      },
+    },
   },
 
   ptp: {
@@ -364,6 +421,7 @@ export const zh: Dict = {
     modes: {
       text: '纯文本',
       'long-form': '长文本',
+      book: '书籍',
       i18n: 'i18n 字符串',
       document: '文档',
       'code-docs': '代码文档',

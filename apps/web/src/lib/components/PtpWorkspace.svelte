@@ -2,7 +2,7 @@
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import type { Checkpoint, Project, PtpRow } from '@tragents/shared';
-  import { checkpoints, projects } from '$lib/stores';
+  import { checkpoints, memories, projects, settings } from '$lib/stores';
   import { i18n } from '$lib/i18n.svelte';
   import { translateText, NoProviderError } from '$lib/translation';
   import Icon from './Icon.svelte';
@@ -23,6 +23,7 @@
   let translatingAll = $state(false);
   let lastSnapshotTime = $state<number | null>(null);
   let showCheckpoints = $state(false);
+  const targetEditStart = new Map<string, string>();
 
   let seedId = $state<string | undefined>();
   $effect(() => {
@@ -63,6 +64,30 @@
     rows = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
   }
 
+  function rememberTargetBeforeEdit(row: PtpRow) {
+    targetEditStart.set(row.id, row.target);
+  }
+
+  async function persistTargetEdit(rowId: string) {
+    await persist();
+    const row = rows.find((r) => r.id === rowId);
+    const before = targetEditStart.get(rowId) ?? '';
+    targetEditStart.delete(rowId);
+    if (!row) return;
+    if (row.status === 'translating') return;
+    const personalization = settings.current.personalization;
+    if (!personalization.enabled || !personalization.memoryEnabled) return;
+    const after = row.target.trim();
+    if (!row.source.trim() || !before.trim() || before.trim() === after) return;
+    await memories.appendCorrection(project.id, {
+      action: 'final-edit',
+      sourcePreview: row.source.replace(/\s+/g, ' ').trim().slice(0, 360),
+      modelOutputPreview: before.replace(/\s+/g, ' ').trim().slice(0, 360),
+      userRevision: after.slice(0, 360),
+      lesson: 'User manually edited this row; prefer the revised wording, terminology, and register in similar contexts.',
+    });
+  }
+
   async function translateRow(row: PtpRow) {
     const text = row.source.trim();
     if (!text) return;
@@ -82,7 +107,9 @@
           );
         },
         onEvent: (e) => {
-          if (e.type === 'discussionTurn') {
+          if (e.type === 'output') {
+            rows = rows.map((r) => (r.id === row.id ? { ...r, target: e.output } : r));
+          } else if (e.type === 'discussionTurn') {
             rows = rows.map((r) =>
               r.id === row.id
                 ? {
@@ -223,9 +250,10 @@
           <div class="cell tgt">
             <textarea
               value={row.target}
+              onfocus={() => rememberTargetBeforeEdit(row)}
               oninput={(e) =>
                 setRow(row.id, { target: (e.currentTarget as HTMLTextAreaElement).value })}
-              onblur={persist}
+              onblur={() => persistTargetEdit(row.id)}
               placeholder={i18n.t('ptp.targetPlaceholder')}
               rows="3"
               class:streaming={row.status === 'translating'}

@@ -1,6 +1,6 @@
 {
   "name": "@tragents/core",
-  "version": "0.10.1",
+  "version": "0.10.5",
   "private": true,
   "description": "tragents core engine — providers, agents, orchestrator. Browser-safe TS.",
   "type": "module",

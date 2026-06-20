@@ -8,7 +8,7 @@ import type {
   ProjectMemory,
   ProviderConfig,
 } from '@tragents/shared';
-import { STORES, idbDelete, idbGet, idbPut } from './storage/db.js';
+import { STORES, idbClear, idbDelete, idbGet, idbPut } from './storage/db.js';
 import { decryptString, encryptString } from './storage/keystore.js';
 import {
   activities,
@@ -51,6 +51,8 @@ export interface BackupImportSummary {
   memories: number;
   providers: number;
 }
+
+export type BackupImportStrategy = 'merge' | 'replace';
 
 export interface GitHubBackupResult {
   url: string;
@@ -219,8 +221,28 @@ export async function readLocalBackup(file: File): Promise<LocalBackupPayload> {
   return parsed;
 }
 
-export async function importLocalBackup(payload: LocalBackupPayload): Promise<BackupImportSummary> {
+async function clearRestoredStores() {
+  await Promise.all([
+    idbClear(STORES.providers),
+    idbClear(STORES.projects),
+    idbClear(STORES.glossaries),
+    idbClear(STORES.checkpoints),
+    idbClear(STORES.sessions),
+    idbClear(STORES.tasks),
+    idbClear(STORES.activities),
+    idbClear(STORES.memories),
+  ]);
+}
+
+export async function importLocalBackup(
+  payload: LocalBackupPayload,
+  options: { strategy?: BackupImportStrategy } = {},
+): Promise<BackupImportSummary> {
   assertBackup(payload);
+
+  if ((options.strategy ?? 'merge') === 'replace') {
+    await clearRestoredStores();
+  }
 
   await idbPut(STORES.settings, await settingsForImport(payload.settings), SETTINGS_KEY);
 
@@ -236,7 +258,10 @@ export async function importLocalBackup(payload: LocalBackupPayload): Promise<Ba
   for (const session of payload.sessions ?? []) await idbPut(STORES.sessions, session);
   for (const task of payload.tasks ?? []) await idbPut(STORES.tasks, task);
   for (const activity of payload.activities ?? []) await idbPut(STORES.activities, activity);
-  for (const memory of payload.memories ?? []) await idbPut(STORES.memories, memory);
+  for (const memory of payload.memories ?? []) {
+    const { projectId, ...patch } = memory;
+    await memories.upsert(projectId, patch);
+  }
 
   await Promise.all([
     settings.load(),
@@ -304,7 +329,9 @@ export async function pushBackupToGitHub(): Promise<GitHubBackupResult> {
   };
 }
 
-export async function restoreBackupFromGitHub(): Promise<BackupImportSummary> {
+export async function restoreBackupFromGitHub(
+  options: { strategy?: BackupImportStrategy } = {},
+): Promise<BackupImportSummary> {
   const { owner, repo, branch, path } = githubConfig();
   const encodedPath = path.split('/').map(encodeURIComponent).join('/');
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
@@ -314,5 +341,5 @@ export async function restoreBackupFromGitHub(): Promise<BackupImportSummary> {
   }
   const parsed = JSON.parse(decodeBase64(response.content)) as unknown;
   assertBackup(parsed);
-  return await importLocalBackup(parsed);
+  return await importLocalBackup(parsed, options);
 }

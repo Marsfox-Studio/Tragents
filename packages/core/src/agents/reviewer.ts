@@ -20,6 +20,7 @@ export interface ReviewOptions {
   projectName?: string;
   projectDescription?: string;
   styleNote?: string;
+  discussionContext?: string;
   temperature?: number;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
@@ -45,6 +46,7 @@ export async function review(opts: ReviewOptions): Promise<string> {
           projectName: opts.projectName,
           projectDescription: opts.projectDescription,
           styleNote: opts.styleNote,
+          discussionContext: opts.discussionContext,
         },
         opts.discussion.agentLabel,
       )
@@ -55,6 +57,7 @@ export async function review(opts: ReviewOptions): Promise<string> {
         projectName: opts.projectName,
         projectDescription: opts.projectDescription,
         styleNote: opts.styleNote,
+        discussionContext: opts.discussionContext,
       });
 
   const userMessage =

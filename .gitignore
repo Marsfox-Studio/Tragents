@@ -31,3 +31,4 @@ desktop.ini
 .playwright-mcp/
 
 src-tauri/target/
+agent-tools/

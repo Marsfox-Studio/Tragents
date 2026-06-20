@@ -1,0 +1,25 @@
+{
+  "name": "reflect_task",
+  "description": "Critically review analysis results, assess solution completeness and identify optimization opportunities, ensure solutions conform to best practices, if code needs to be provided use pseudocode format and only provide high-level logic flow and key steps avoiding complete code\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "minLength": 10,
+        "description": "結構化的任務摘要，保持與分析階段一致以確保連續性"
+      },
+      "analysis": {
+        "type": "string",
+        "minLength": 100,
+        "description": "完整詳盡的技術分析結果，包括所有技術細節、依賴組件和實施方案，如果需要提供程式碼請使用 pseudocode 格式且僅提供高級邏輯流程和關鍵步驟避免完整代碼"
+      }
+    },
+    "required": [
+      "summary",
+      "analysis"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

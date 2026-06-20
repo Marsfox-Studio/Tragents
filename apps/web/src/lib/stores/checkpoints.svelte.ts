@@ -44,6 +44,12 @@ class CheckpointsStore {
     this.list = this.list.filter((c) => c.id !== id);
   }
 
+  async removeForProject(projectId: string) {
+    const removed = this.list.filter((c) => c.projectId === projectId);
+    for (const cp of removed) await idbDelete(STORES.checkpoints, cp.id);
+    this.list = this.list.filter((c) => c.projectId !== projectId);
+  }
+
   /** Drop all auto-checkpoints older than the most recent N for a project. */
   async pruneAuto(projectId: string, keep = 5) {
     const auto = this.list.filter((c) => c.projectId === projectId && c.auto);

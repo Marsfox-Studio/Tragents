@@ -1,7 +1,7 @@
 {
   "name": "tragents",
   "private": true,
-  "version": "0.10.1",
+  "version": "0.10.5",
   "description": "Multi-agent translation suite for games, books, papers, and large engineering projects.",
   "license": "MIT",
   "type": "module",

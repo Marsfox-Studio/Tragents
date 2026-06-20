@@ -14,9 +14,21 @@ export function detectMode(text: string): Exclude<TranslationMode, 'auto'> {
   if (looksLikeSubtitles(trimmed)) return 'subtitles';
   if (looksLikeCodeDocs(trimmed)) return 'code-docs';
   if (looksLikeDocument(trimmed, withoutFences)) return 'document';
+  if (looksLikeBook(trimmed)) return 'book';
   if (estimateTokens(trimmed) > 4000) return 'long-form';
 
   return 'text';
+}
+
+function looksLikeBook(text: string): boolean {
+  const chapterMarkers = countMatches(
+    text,
+    /^(?:#{1,3}\s+)?(?:chapter\s+\d+|chapter\s+[ivxlcdm]+|part\s+\d+|book\s+\d+|第[一二三四五六七八九十百千万\d]+[章节回卷部幕]|序章|终章|尾声).*$/gim,
+  );
+  if (chapterMarkers >= 2 && estimateTokens(text) > 1200) return true;
+
+  const sceneBreaks = countMatches(text, /^\s*(?:\*\s*){3,}$|^\s*[-=_]{3,}\s*$/gm);
+  return chapterMarkers >= 1 && sceneBreaks >= 2 && estimateTokens(text) > 3000;
 }
 
 function stripFencedBlocks(text: string): string {

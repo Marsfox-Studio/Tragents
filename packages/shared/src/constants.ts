@@ -97,6 +97,7 @@ export interface PresetDef {
   translators: number;
   reviewers: number;
   consistency: boolean;
+  summarizer?: boolean;
 }
 
 export const AGENT_PRESETS: Record<Exclude<PipelinePreset, 'custom'>, PresetDef> = {
@@ -132,11 +133,21 @@ export const AGENT_PRESETS: Record<Exclude<PipelinePreset, 'custom'>, PresetDef>
     reviewers: 3,
     consistency: true,
   },
+  book: {
+    id: 'book',
+    label: 'Book',
+    description: 'Book index, chapter summaries, selected discussion, and global consistency.',
+    translators: 2,
+    reviewers: 2,
+    consistency: true,
+    summarizer: true,
+  },
 };
 
 export const ALL_MODE_KEYS: readonly ModeKey[] = [
   'text',
   'long-form',
+  'book',
   'i18n',
   'document',
   'code-docs',
@@ -147,6 +158,7 @@ export const ALL_MODE_KEYS: readonly ModeKey[] = [
 export const IMPLEMENTED_MODE_KEYS: readonly ModeKey[] = [
   'text',
   'long-form',
+  'book',
   'i18n',
   'document',
   'code-docs',
@@ -178,7 +190,7 @@ export function makePipeline(
     translators: def.translators,
     reviewers: def.reviewers,
     withConsistency: def.consistency,
-    withSummarizer: false,
+    withSummarizer: def.summarizer ?? false,
     createdAt: now,
     updatedAt: now,
   };

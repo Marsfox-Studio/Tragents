@@ -70,6 +70,12 @@ class GlossariesStore {
     this.list = this.list.filter((g) => g.id !== id);
   }
 
+  async removeForProject(projectId: string) {
+    const removed = this.list.filter((g) => g.projectId === projectId);
+    for (const glossary of removed) await idbDelete(STORES.glossaries, glossary.id);
+    this.list = this.list.filter((g) => g.projectId !== projectId);
+  }
+
   private async patch(id: string, patch: Partial<Glossary>) {
     const idx = this.list.findIndex((g) => g.id === id);
     if (idx < 0) return;

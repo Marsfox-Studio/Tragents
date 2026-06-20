@@ -1,5 +1,5 @@
 import type { ActivityRecord } from '@tragents/shared';
-import { STORES, idbClear, idbGetAll, idbPut } from '../storage/db.js';
+import { STORES, idbClear, idbDelete, idbGetAll, idbPut } from '../storage/db.js';
 
 class ActivitiesStore {
   list = $state<ActivityRecord[]>([]);
@@ -37,6 +37,12 @@ class ActivitiesStore {
   async clear() {
     this.list = [];
     await idbClear(STORES.activities);
+  }
+
+  async removeForProject(projectId: string) {
+    const rows = this.list.filter((row) => row.projectId === projectId);
+    await Promise.all(rows.map((row) => idbDelete(STORES.activities, row.id)));
+    this.list = this.list.filter((row) => row.projectId !== projectId);
   }
 }
 

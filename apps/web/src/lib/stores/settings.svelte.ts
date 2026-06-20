@@ -44,15 +44,17 @@ function defaultGitHubBackup(): GitHubBackupSettings {
 
 function freshDefaults(): AppSettings {
   const seed = makePipeline(SEED_PIPELINE_NAME, 'balanced');
+  const book = makePipeline('Book', 'book');
   const modeAssignments: AppSettings['modeAssignments'] = {};
   for (const mode of ALL_MODE_KEYS) modeAssignments[mode] = seed.id;
+  modeAssignments.book = book.id;
   return {
     theme: { palette: 'iris', mode: 'system' },
     onboardingCompleted: false,
     uiLanguage: 'en',
     defaultSourceLanguage: 'auto',
     defaultTargetLanguage: 'zh',
-    pipelines: [seed],
+    pipelines: [seed, book],
     modeAssignments,
     personalization: defaultPersonalization(),
     githubBackup: defaultGitHubBackup(),
@@ -130,6 +132,25 @@ function migrate(stored: unknown): AppSettings {
   if (!next.modeAssignments || typeof next.modeAssignments !== 'object') {
     next.modeAssignments = fresh.modeAssignments;
   }
+  let bookPipeline = next.pipelines.find((p) => p.preset === 'book');
+  if (!bookPipeline) {
+    bookPipeline = makePipeline('Book', 'book');
+    next.pipelines = [...next.pipelines, bookPipeline];
+  }
+  const fallbackPipelineId = next.pipelines[0]?.id ?? fresh.pipelines[0]!.id;
+  const validPipelineIds = new Set(next.pipelines.map((p) => p.id));
+  next.modeAssignments = { ...next.modeAssignments };
+  for (const mode of ALL_MODE_KEYS) {
+    const assigned = next.modeAssignments[mode];
+    const assignedPipeline = assigned ? next.pipelines.find((p) => p.id === assigned) : undefined;
+    if (mode === 'book' && assignedPipeline?.preset !== 'book') {
+      next.modeAssignments[mode] = bookPipeline.id;
+      continue;
+    }
+    if (!assigned || !validPipelineIds.has(assigned)) {
+      next.modeAssignments[mode] = mode === 'book' ? bookPipeline.id : fallbackPipelineId;
+    }
+  }
 
   return next;
 }
@@ -173,6 +194,13 @@ class SettingsStore {
       ...patch,
     };
     await this.save();
+  }
+
+  draftPersonalization(patch: Partial<PersonalizationSettings>) {
+    this.current.personalization = {
+      ...this.current.personalization,
+      ...patch,
+    };
   }
 
   async updateGitHubBackup(patch: Partial<GitHubBackupSettings>) {
@@ -240,11 +268,15 @@ class SettingsStore {
 
   async deletePipeline(id: string) {
     if (this.current.pipelines.length <= 1) return;
-    this.current.pipelines = this.current.pipelines.filter((p) => p.id !== id);
+    const remaining = this.current.pipelines.filter((p) => p.id !== id);
+    const bookReplacement = remaining.find((p) => p.withSummarizer);
+    if (this.current.modeAssignments.book === id && !bookReplacement) return;
+
+    this.current.pipelines = remaining;
     const replacement = this.current.pipelines[0]!.id;
     const next = { ...this.current.modeAssignments };
     for (const m of ALL_MODE_KEYS) {
-      if (next[m] === id) next[m] = replacement;
+      if (next[m] === id) next[m] = m === 'book' ? (bookReplacement?.id ?? replacement) : replacement;
     }
     this.current.modeAssignments = next;
     await this.save();
@@ -299,6 +331,10 @@ class SettingsStore {
       delete next[mode];
       this.current.modeAssignments = next;
     } else {
+      if (mode === 'book') {
+        const pipeline = this.pipelineById(pipelineId);
+        if (!pipeline?.withSummarizer) return;
+      }
       this.current.modeAssignments = { ...this.current.modeAssignments, [mode]: pipelineId };
     }
     await this.save();

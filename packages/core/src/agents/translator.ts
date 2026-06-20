@@ -21,6 +21,7 @@ export interface TranslateOptions {
   contextBefore?: string;
   /** Excerpt of text immediately after this chunk (not translated). */
   contextAfter?: string;
+  discussionContext?: string;
   temperature?: number;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
@@ -50,6 +51,7 @@ export async function translate(opts: TranslateOptions): Promise<string> {
           styleNote: opts.styleNote,
           contextBefore: opts.contextBefore,
           contextAfter: opts.contextAfter,
+          discussionContext: opts.discussionContext,
         },
         opts.discussion.agentLabel,
       )
@@ -62,6 +64,7 @@ export async function translate(opts: TranslateOptions): Promise<string> {
         styleNote: opts.styleNote,
         contextBefore: opts.contextBefore,
         contextAfter: opts.contextAfter,
+        discussionContext: opts.discussionContext,
       });
 
   let raw = '';

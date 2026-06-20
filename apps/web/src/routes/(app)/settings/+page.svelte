@@ -13,7 +13,7 @@
     ProviderKind,
     ThemeMode,
   } from '@tragents/shared';
-  import { AGENT_PRESETS, IMPLEMENTED_MODE_KEYS } from '@tragents/shared';
+  import { IMPLEMENTED_MODE_KEYS } from '@tragents/shared';
   import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
@@ -34,6 +34,7 @@
     restoreBackupFromGitHub,
     saveGitHubBackupToken,
     type BackupImportSummary,
+    type BackupImportStrategy,
     type GitHubBackupResult,
     type LocalBackupPayload,
   } from '$lib/backup';
@@ -51,12 +52,19 @@
   ];
 
   let active = $state<SectionId>('appearance');
+  let personalizationSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingPersonalizationPatch: Partial<PersonalizationSettings> = {};
 
   onMount(() => {
     const requested = page.url.searchParams.get('section');
     if (requested && SECTIONS.some((s) => s.id === requested)) {
       active = requested as SectionId;
     }
+    return () => {
+      if (personalizationSaveTimer) {
+        void flushQueuedPersonalization();
+      }
+    };
   });
 
   function selectSection(id: SectionId) {
@@ -83,6 +91,8 @@
     'faithful',
     'localized',
   ];
+  type PersonalizationSelectKind = 'tone' | 'strategy';
+  let openPersonalizationSelect = $state<PersonalizationSelectKind | null>(null);
 
   async function selectPalette(p: BrandPalette) {
     await settings.setTheme(p, settings.current.theme.mode);
@@ -120,7 +130,13 @@
     pendingProviderDeleteId = null;
   }
 
-  const presetIds: Exclude<PipelinePreset, 'custom'>[] = ['fast', 'balanced', 'quality', 'literary'];
+  const presetIds: Exclude<PipelinePreset, 'custom'>[] = [
+    'fast',
+    'balanced',
+    'quality',
+    'literary',
+    'book',
+  ];
 
   let editingPipeline = $state<Pipeline | null>(null);
   let creatingFromPreset = $state(false);
@@ -130,17 +146,30 @@
     if (creatingFromPreset) return;
     creatingFromPreset = true;
     try {
-      const def = AGENT_PRESETS[preset];
-      const p = await settings.createPipeline(def.label, preset);
+      const p = await settings.createPipeline(i18n.t(`pipelines.presets.${preset}.label`), preset);
       editingPipeline = p;
     } finally {
       creatingFromPreset = false;
     }
   }
 
+  function presetLabel(preset: Exclude<PipelinePreset, 'custom'>): string {
+    return i18n.t(`pipelines.presets.${preset}.label`);
+  }
+
+  function presetDescription(preset: Exclude<PipelinePreset, 'custom'>): string {
+    return i18n.t(`pipelines.presets.${preset}.description`);
+  }
+
   function requestDeletePipeline(p: Pipeline) {
-    if (settings.current.pipelines.length <= 1) return;
+    if (!canDeletePipeline(p)) return;
     pendingPipelineDeleteId = p.id;
+  }
+
+  function canDeletePipeline(p: Pipeline): boolean {
+    if (settings.current.pipelines.length <= 1) return false;
+    if (settings.current.modeAssignments.book !== p.id) return true;
+    return settings.current.pipelines.some((candidate) => candidate.id !== p.id && candidate.withSummarizer);
   }
 
   async function confirmDeletePipeline() {
@@ -186,6 +215,7 @@
   }
 
   let selectedBackup = $state<LocalBackupPayload | null>(null);
+  let backupImportStrategy = $state<BackupImportStrategy>('merge');
   let backupError = $state('');
   let backupImported = $state<BackupImportSummary | null>(null);
   let importingBackup = $state(false);
@@ -200,6 +230,84 @@
 
   async function updatePersonalization(patch: Partial<PersonalizationSettings>) {
     await settings.updatePersonalization(patch);
+  }
+
+  async function flushQueuedPersonalization() {
+    if (personalizationSaveTimer) clearTimeout(personalizationSaveTimer);
+    personalizationSaveTimer = undefined;
+    const patch = pendingPersonalizationPatch;
+    pendingPersonalizationPatch = {};
+    if (Object.keys(patch).length > 0) {
+      await updatePersonalization(patch);
+    }
+  }
+
+  function queuePersonalizationUpdate(patch: Partial<PersonalizationSettings>) {
+    settings.draftPersonalization(patch);
+    pendingPersonalizationPatch = { ...pendingPersonalizationPatch, ...patch };
+    if (personalizationSaveTimer) clearTimeout(personalizationSaveTimer);
+    personalizationSaveTimer = setTimeout(() => {
+      void flushQueuedPersonalization();
+    }, 400);
+  }
+
+  function personalizationSelectId(kind: PersonalizationSelectKind) {
+    return `personalization-${kind}-menu`;
+  }
+
+  function togglePersonalizationSelect(kind: PersonalizationSelectKind) {
+    openPersonalizationSelect = openPersonalizationSelect === kind ? null : kind;
+  }
+
+  function closePersonalizationSelectOnOutside(node: HTMLElement, kind: PersonalizationSelectKind) {
+    const onPointerDown = (event: PointerEvent) => {
+      if (openPersonalizationSelect === kind && !node.contains(event.target as Node)) {
+        openPersonalizationSelect = null;
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    return {
+      destroy() {
+        window.removeEventListener('pointerdown', onPointerDown, true);
+      },
+    };
+  }
+
+  async function chooseTone(tone: PersonalizationSettings['tone'], close = true) {
+    if (close) openPersonalizationSelect = null;
+    await updatePersonalization({ tone });
+  }
+
+  async function chooseStrategy(strategy: PersonalizationSettings['strategy'], close = true) {
+    if (close) openPersonalizationSelect = null;
+    await updatePersonalization({ strategy });
+  }
+
+  function handlePersonalizationSelectKeydown<T extends string>(
+    event: KeyboardEvent,
+    kind: PersonalizationSelectKind,
+    values: readonly T[],
+    current: T,
+    choose: (value: T, close?: boolean) => void | Promise<void>,
+  ) {
+    if (event.key === 'Escape') {
+      openPersonalizationSelect = null;
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      togglePersonalizationSelect(kind);
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+
+    event.preventDefault();
+    openPersonalizationSelect = kind;
+    const index = Math.max(values.indexOf(current), 0);
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    const next = values[(index + direction + values.length) % values.length];
+    if (next === undefined) return;
+    void choose(next, false);
   }
 
   async function handleBackupFile(event: Event) {
@@ -220,7 +328,7 @@
     importingBackup = true;
     backupError = '';
     try {
-      backupImported = await importLocalBackup(selectedBackup);
+      backupImported = await importLocalBackup(selectedBackup, { strategy: backupImportStrategy });
       selectedBackup = null;
     } catch (err) {
       backupError = err instanceof Error ? err.message : String(err);
@@ -275,7 +383,7 @@
     backupError = '';
     githubImported = null;
     try {
-      githubImported = await restoreBackupFromGitHub();
+      githubImported = await restoreBackupFromGitHub({ strategy: backupImportStrategy });
     } catch (err) {
       backupError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -413,15 +521,14 @@
             <h3 class="subhead">{i18n.t('pipelines.startFromPreset')}</h3>
             <div class="preset-row">
               {#each presetIds as presetId (presetId)}
-                {@const preset = AGENT_PRESETS[presetId]}
                 <button
                   type="button"
                   class="preset-pill"
                   onclick={() => createPipelineFromPreset(presetId)}
                   disabled={creatingFromPreset}
                 >
-                  <span class="preset-name">{preset.label}</span>
-                  <span class="preset-desc">{preset.description}</span>
+                  <span class="preset-name">{presetLabel(presetId)}</span>
+                  <span class="preset-desc">{presetDescription(presetId)}</span>
                 </button>
               {/each}
             </div>
@@ -461,7 +568,7 @@
                     <IconButton
                       label={i18n.t('pipelines.delete')}
                       variant="ghost"
-                      disabled={settings.current.pipelines.length <= 1}
+                      disabled={!canDeletePipeline(p)}
                       onclick={() => requestDeletePipeline(p)}
                     >
                       <Icon name="trash" size={15} />
@@ -503,7 +610,9 @@
                       setModeAssignment(m, (e.currentTarget as HTMLSelectElement).value)}
                   >
                     {#each settings.current.pipelines as p (p.id)}
-                      <option value={p.id}>{p.name}</option>
+                      {#if m !== 'book' || p.withSummarizer}
+                        <option value={p.id}>{p.name}</option>
+                      {/if}
                     {/each}
                   </select>
                 </div>
@@ -563,39 +672,123 @@
             </div>
 
             <div class="form-grid">
-              <label>
+              <div class="field-block" use:closePersonalizationSelectOnOutside={'tone'}>
                 <span>{i18n.t('personalization.tone')}</span>
-                <select
-                  value={settings.current.personalization.tone}
-                  onchange={(e) =>
-                    updatePersonalization({
-                      tone: (e.currentTarget as HTMLSelectElement)
-                        .value as PersonalizationSettings['tone'],
-                    })}
-                >
-                  {#each toneIds as tone (tone)}
-                    <option value={tone}>{i18n.t(`personalization.tones.${tone}`)}</option>
-                  {/each}
-                </select>
-              </label>
+                <span class="custom-select" class:open={openPersonalizationSelect === 'tone'}>
+                  <button
+                    type="button"
+                    class="select-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={openPersonalizationSelect === 'tone'}
+                    aria-controls={personalizationSelectId('tone')}
+                    onclick={() => togglePersonalizationSelect('tone')}
+                    onkeydown={(e) =>
+                      handlePersonalizationSelectKeydown(
+                        e,
+                        'tone',
+                        toneIds,
+                        settings.current.personalization.tone,
+                        chooseTone,
+                      )}
+                  >
+                    <span>{i18n.t(`personalization.tones.${settings.current.personalization.tone}`)}</span>
+                    <Icon name="chevron-down" size={15} />
+                  </button>
 
-              <label>
+                  {#if openPersonalizationSelect === 'tone'}
+                    <div
+                      id={personalizationSelectId('tone')}
+                      class="select-menu"
+                      role="listbox"
+                      transition:fly={{ y: -4, duration: 120, easing: cubicOut }}
+                    >
+                      {#each toneIds as tone (tone)}
+                        <button
+                          type="button"
+                          class="select-option"
+                          class:selected={settings.current.personalization.tone === tone}
+                          role="option"
+                          aria-selected={settings.current.personalization.tone === tone}
+                          onclick={() => chooseTone(tone)}
+                        >
+                          <span>
+                            <strong>{i18n.t(`personalization.tones.${tone}`)}</strong>
+                            <small>{i18n.t(`personalization.toneHints.${tone}`)}</small>
+                          </span>
+                          {#if settings.current.personalization.tone === tone}
+                            <Icon name="check" size={15} />
+                          {/if}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </span>
+                <small class="field-hint">
+                  {i18n.t(`personalization.toneHints.${settings.current.personalization.tone}`)}
+                </small>
+              </div>
+
+              <div class="field-block" use:closePersonalizationSelectOnOutside={'strategy'}>
                 <span>{i18n.t('personalization.strategy')}</span>
-                <select
-                  value={settings.current.personalization.strategy}
-                  onchange={(e) =>
-                    updatePersonalization({
-                      strategy: (e.currentTarget as HTMLSelectElement)
-                        .value as PersonalizationSettings['strategy'],
-                    })}
-                >
-                  {#each strategyIds as strategy (strategy)}
-                    <option value={strategy}>
-                      {i18n.t(`personalization.strategies.${strategy}`)}
-                    </option>
-                  {/each}
-                </select>
-              </label>
+                <span class="custom-select" class:open={openPersonalizationSelect === 'strategy'}>
+                  <button
+                    type="button"
+                    class="select-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={openPersonalizationSelect === 'strategy'}
+                    aria-controls={personalizationSelectId('strategy')}
+                    onclick={() => togglePersonalizationSelect('strategy')}
+                    onkeydown={(e) =>
+                      handlePersonalizationSelectKeydown(
+                        e,
+                        'strategy',
+                        strategyIds,
+                        settings.current.personalization.strategy,
+                        chooseStrategy,
+                      )}
+                  >
+                    <span>
+                      {i18n.t(
+                        `personalization.strategies.${settings.current.personalization.strategy}`,
+                      )}
+                    </span>
+                    <Icon name="chevron-down" size={15} />
+                  </button>
+
+                  {#if openPersonalizationSelect === 'strategy'}
+                    <div
+                      id={personalizationSelectId('strategy')}
+                      class="select-menu"
+                      role="listbox"
+                      transition:fly={{ y: -4, duration: 120, easing: cubicOut }}
+                    >
+                      {#each strategyIds as strategy (strategy)}
+                        <button
+                          type="button"
+                          class="select-option"
+                          class:selected={settings.current.personalization.strategy === strategy}
+                          role="option"
+                          aria-selected={settings.current.personalization.strategy === strategy}
+                          onclick={() => chooseStrategy(strategy)}
+                        >
+                          <span>
+                            <strong>{i18n.t(`personalization.strategies.${strategy}`)}</strong>
+                            <small>{i18n.t(`personalization.strategyHints.${strategy}`)}</small>
+                          </span>
+                          {#if settings.current.personalization.strategy === strategy}
+                            <Icon name="check" size={15} />
+                          {/if}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </span>
+                <small class="field-hint">
+                  {i18n.t(
+                    `personalization.strategyHints.${settings.current.personalization.strategy}`,
+                  )}
+                </small>
+              </div>
             </div>
 
             <div class="textarea-stack">
@@ -605,7 +798,7 @@
                   value={settings.current.personalization.scenario ?? ''}
                   placeholder={i18n.t('personalization.scenarioPlaceholder')}
                   oninput={(e) =>
-                    updatePersonalization({
+                    queuePersonalizationUpdate({
                       scenario: (e.currentTarget as HTMLInputElement).value,
                     })}
                 />
@@ -616,7 +809,7 @@
                   value={settings.current.personalization.audience ?? ''}
                   placeholder={i18n.t('personalization.audiencePlaceholder')}
                   oninput={(e) =>
-                    updatePersonalization({
+                    queuePersonalizationUpdate({
                       audience: (e.currentTarget as HTMLInputElement).value,
                     })}
                 />
@@ -628,7 +821,7 @@
                   value={settings.current.personalization.styleNote ?? ''}
                   placeholder={i18n.t('personalization.styleNotePlaceholder')}
                   oninput={(e) =>
-                    updatePersonalization({
+                    queuePersonalizationUpdate({
                       styleNote: (e.currentTarget as HTMLTextAreaElement).value,
                     })}
                 ></textarea>
@@ -640,7 +833,7 @@
                   value={settings.current.personalization.constraints ?? ''}
                   placeholder={i18n.t('personalization.constraintsPlaceholder')}
                   oninput={(e) =>
-                    updatePersonalization({
+                    queuePersonalizationUpdate({
                       constraints: (e.currentTarget as HTMLTextAreaElement).value,
                     })}
                 ></textarea>
@@ -654,13 +847,20 @@
               <ul class="memory-list">
                 {#each memories.list as memory (memory.projectId)}
                   {@const project = projects.byId(memory.projectId)}
+                  {@const latestCorrection = memory.correctionHistory?.[0]}
                   <li>
                     <div>
                       <strong>{project?.name ?? memory.projectId}</strong>
                       <span>
-                        {memory.styleDecisions.length + memory.terminologyDecisions.length + memory.voiceNotes.length}
+                        {memory.styleDecisions.length +
+                          memory.terminologyDecisions.length +
+                          (memory.correctionHistory?.length ?? 0) +
+                          memory.voiceNotes.length}
                         {i18n.t('personalization.memoryItems')}
                       </span>
+                      {#if latestCorrection}
+                        <span>{latestCorrection.lesson}</span>
+                      {/if}
                     </div>
                     <Button size="sm" variant="ghost" onclick={() => memories.remove(memory.projectId)}>
                       {i18n.t('common.remove')}
@@ -696,6 +896,22 @@
                   {selectedBackup.glossaries.length} {i18n.t('backup.glossaries')} ·
                   {selectedBackup.memories.length} {i18n.t('backup.memories')}
                 </span>
+                <div class="backup-mode" aria-label={i18n.t('backup.importMode')}>
+                  <button
+                    type="button"
+                    class:active={backupImportStrategy === 'merge'}
+                    onclick={() => (backupImportStrategy = 'merge')}
+                  >
+                    {i18n.t('backup.mergeImport')}
+                  </button>
+                  <button
+                    type="button"
+                    class:active={backupImportStrategy === 'replace'}
+                    onclick={() => (backupImportStrategy = 'replace')}
+                  >
+                    {i18n.t('backup.replaceImport')}
+                  </button>
+                </div>
                 <Button
                   size="sm"
                   variant="subtle"
@@ -847,6 +1063,15 @@
               <h2>{i18n.t('settings.about')}</h2>
             </header>
             <p class="about">{i18n.t('settings.aboutText')}</p>
+            <ul class="about-list">
+              <li>{i18n.t('settings.aboutLocal')}</li>
+              <li>{i18n.t('settings.aboutQuality')}</li>
+            </ul>
+            <div class="about-links" aria-label={i18n.t('settings.aboutCommunity')}>
+              <a href="https://linux.do" target="_blank" rel="noreferrer">linux.do</a>
+              <a href="https://x.com/AflydreamCat" target="_blank" rel="noreferrer">X @AflydreamCat</a>
+              <a href="https://t.me/marsfox_offical" target="_blank" rel="noreferrer">Telegram @marsfox_offical</a>
+            </div>
           </section>
         {/if}
       </div>
@@ -1328,13 +1553,13 @@
       grid-template-columns: 1fr;
     }
   }
-  .form-grid label,
+  .field-block,
   .textarea-stack label {
     display: flex;
     flex-direction: column;
     gap: 7px;
   }
-  .form-grid label > span,
+  .field-block > span:first-child,
   .textarea-stack label > span {
     color: var(--tg-fg-subtle);
     font-size: 11.5px;
@@ -1342,7 +1567,123 @@
     letter-spacing: 0.07em;
     text-transform: uppercase;
   }
-  .form-grid select,
+  .custom-select {
+    position: relative;
+    display: block;
+  }
+  .select-trigger {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--tg-border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--tg-bg-input) 82%, transparent);
+    color: var(--tg-fg);
+    font: inherit;
+    font-size: 14px;
+    padding: 10px 13px;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease,
+      background 0.16s ease;
+  }
+  .select-trigger:hover {
+    background: color-mix(in srgb, var(--tg-bg-input) 92%, var(--tg-primary) 8%);
+    border-color: color-mix(in srgb, var(--tg-border) 72%, var(--tg-primary));
+  }
+  .select-trigger:focus-visible {
+    outline: none;
+    border-color: var(--tg-primary);
+    box-shadow: 0 0 0 3px var(--tg-ring);
+  }
+  .custom-select.open .select-trigger {
+    border-color: color-mix(in srgb, var(--tg-primary) 58%, var(--tg-border));
+    box-shadow:
+      0 0 0 3px var(--tg-ring),
+      inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  }
+  .select-trigger :global(svg) {
+    flex: 0 0 auto;
+    color: var(--tg-fg-subtle);
+    transition: transform 0.16s ease;
+  }
+  .custom-select.open .select-trigger :global(svg) {
+    transform: rotate(180deg);
+  }
+  .select-menu {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 7px);
+    left: 0;
+    width: 100%;
+    max-height: min(280px, 52vh);
+    overflow: auto;
+    border: 1px solid var(--tg-border);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--tg-bg-elevated) 96%, var(--tg-bg) 4%);
+    color: var(--tg-fg);
+    padding: 6px;
+    box-shadow:
+      0 18px 46px rgba(15, 23, 42, 0.18),
+      0 6px 16px rgba(15, 23, 42, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  .select-option {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+    color: var(--tg-fg);
+    cursor: pointer;
+    padding: 9px 10px;
+    text-align: left;
+    transition:
+      background 0.14s ease,
+      color 0.14s ease;
+  }
+  .select-option:hover,
+  .select-option:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, var(--tg-primary) 10%, transparent);
+  }
+  .select-option.selected {
+    background: color-mix(in srgb, var(--tg-primary) 14%, transparent);
+  }
+  .select-option > span {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .select-option strong {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .select-option small {
+    color: var(--tg-fg-subtle);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .select-option :global(svg) {
+    flex: 0 0 auto;
+    color: var(--tg-primary);
+  }
+  .field-hint {
+    color: var(--tg-fg-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    min-height: 32px;
+  }
   .textarea-stack input,
   .textarea-stack textarea {
     width: 100%;
@@ -1368,7 +1709,6 @@
     min-height: 86px;
     line-height: 1.5;
   }
-  .form-grid select:focus,
   .textarea-stack input:focus,
   .textarea-stack textarea:focus {
     outline: none;
@@ -1542,6 +1882,7 @@
   }
   .backup-preview {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
@@ -1559,6 +1900,28 @@
     flex: 1;
     color: var(--tg-fg-muted);
     font-size: 12.5px;
+  }
+  .backup-mode {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--tg-border);
+    border-radius: 999px;
+    background: var(--tg-bg-input);
+  }
+  .backup-mode button {
+    min-width: 72px;
+    height: 28px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--tg-fg-muted);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .backup-mode button.active {
+    color: var(--tg-primary);
+    background: color-mix(in srgb, var(--tg-primary) 12%, transparent);
   }
   .backup-ok,
   .backup-error {
@@ -1582,5 +1945,30 @@
     font-size: 14px;
     line-height: 1.65;
     margin: 0;
+  }
+  .about-list {
+    margin: 14px 0 0;
+    padding-left: 18px;
+    color: var(--tg-fg-muted);
+    font-size: 13.5px;
+    line-height: 1.65;
+  }
+  .about-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .about-links a {
+    color: var(--tg-primary);
+    border: 1px solid var(--tg-border);
+    border-radius: 999px;
+    padding: 6px 10px;
+    text-decoration: none;
+    font-size: 12.5px;
+  }
+  .about-links a:hover {
+    background: var(--tg-bg-elevated);
+    border-color: var(--tg-border-strong);
   }
 </style>

@@ -99,21 +99,33 @@
   const translatorResolved = $derived(resolveAssignment(translatorAssignment));
   const reviewerResolved = $derived(resolveAssignment(reviewerAssignment));
   const consistencyResolved = $derived(resolveAssignment(consistencyAssignment));
+  const summarizerResolved = $derived(resolveAssignment(summarizerAssignment));
+  const summarizerRequired = $derived(settings.current.modeAssignments.book === pipeline.id);
+
+  $effect(() => {
+    if (summarizerRequired && !withSummarizer) withSummarizer = true;
+  });
 
   async function save() {
     saving = true;
     try {
+      const nextWithSummarizer = summarizerRequired || withSummarizer;
+      const structureChanged =
+        translators !== pipeline.translators ||
+        reviewers !== pipeline.reviewers ||
+        withConsistency !== pipeline.withConsistency ||
+        nextWithSummarizer !== pipeline.withSummarizer;
       await settings.updatePipeline(pipeline.id, {
         name: name.trim() || pipeline.name,
         translators,
         reviewers,
         withConsistency,
-        withSummarizer,
+        withSummarizer: nextWithSummarizer,
         translatorAssignment,
         reviewerAssignment: reviewers > 0 ? reviewerAssignment : undefined,
         consistencyAssignment: withConsistency ? consistencyAssignment : undefined,
-        summarizerAssignment: withSummarizer ? summarizerAssignment : undefined,
-        preset: 'custom',
+        summarizerAssignment: nextWithSummarizer ? summarizerAssignment : undefined,
+        preset: structureChanged ? 'custom' : pipeline.preset,
       });
       onClose();
     } finally {
@@ -158,7 +170,7 @@
           </span>
         </label>
         <label class="toggle">
-          <input type="checkbox" bind:checked={withSummarizer} disabled />
+          <input type="checkbox" bind:checked={withSummarizer} disabled={summarizerRequired} />
           <span class="toggle-text">
             <strong>{i18n.t('pipelines.withSummarizer')}</strong>
             <small>{i18n.t('pipelines.withSummarizerHint')}</small>
@@ -238,6 +250,30 @@
                   placeholder="model-id"
                   oninput={(e: Event) =>
                     changeModelFor('consistency', (e.currentTarget as HTMLInputElement).value)}
+                />
+              </span>
+            </div>
+          {/if}
+
+          {#if withSummarizer}
+            <div class="role-cell">
+              <span class="role-label">{i18n.t('pipelines.role.summarizer')}</span>
+              <span class="role-controls">
+                <select
+                  value={summarizerResolved.providerId}
+                  onchange={(e: Event) =>
+                    changeProviderFor('summarizer', (e.currentTarget as HTMLSelectElement).value)}
+                >
+                  {#each providerOptions() as o (o.value)}
+                    <option value={o.value}>{o.label}</option>
+                  {/each}
+                </select>
+                <input
+                  type="text"
+                  value={summarizerResolved.modelId}
+                  placeholder="model-id"
+                  oninput={(e: Event) =>
+                    changeModelFor('summarizer', (e.currentTarget as HTMLInputElement).value)}
                 />
               </span>
             </div>

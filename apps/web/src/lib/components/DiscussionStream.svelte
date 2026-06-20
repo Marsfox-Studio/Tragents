@@ -1,18 +1,7 @@
-<script module lang="ts">
-  export interface DiscussionTurn {
-    id: string;
-    agentId: string;
-    agentLabel: string;
-    role: 'translator' | 'reviewer';
-    text: string;
-    chunkIndex?: number;
-    timestamp: number;
-  }
-</script>
-
 <script lang="ts">
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
+  import type { DiscussionTurn } from '@tragents/shared';
 
   interface Props {
     turns: DiscussionTurn[];

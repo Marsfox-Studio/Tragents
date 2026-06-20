@@ -1,0 +1,38 @@
+{
+  "name": "query_task",
+  "description": "Search for tasks based on keywords or ID, display abbreviated task information\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "description": "搜尋查詢文字，可以是任務ID或多個關鍵字（空格分隔）"
+      },
+      "isId": {
+        "type": "boolean",
+        "default": false,
+        "description": "指定是否為ID查詢模式，默認為否（關鍵字模式）"
+      },
+      "page": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "default": 1,
+        "description": "分頁頁碼，默認為第1頁"
+      },
+      "pageSize": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "minimum": 1,
+        "maximum": 20,
+        "default": 5,
+        "description": "每頁顯示的任務數量，默認為5筆，最大20筆"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -65,6 +65,14 @@ export function resolvePipeline(
   return settings.pipelineForMode(modeKey);
 }
 
+function discussionPolicyFor(pipeline: Pipeline): 'brief' | 'risk-only' | 'always' {
+  if (pipeline.preset === 'fast') return 'brief';
+  if (pipeline.preset === 'book') return 'risk-only';
+  if (pipeline.preset === 'quality') return 'always';
+  if (pipeline.preset === 'literary') return 'risk-only';
+  return 'risk-only';
+}
+
 /**
  * Build the AgentConfig list a Pipeline expands into.
  * Unset role assignments fall back to the first available provider + that
@@ -167,6 +175,13 @@ export async function detectModeForText(
           reason: `AI checked; preserved ${structuralMode} structure.`,
         };
       }
+      if (structuralMode === 'long-form' && detected.mode === 'book' && detected.confidence < 0.88) {
+        return {
+          mode: structuralMode,
+          confidence: Math.max(detected.confidence, 0.78),
+          reason: 'AI suggested book with low confidence; kept long-form.',
+        };
+      }
       return detected;
     }
   } catch {
@@ -191,10 +206,15 @@ export async function translateText(req: TranslateRequest): Promise<TranslateRes
   if (!targetLang) throw new Error(`Unknown target language: ${req.target}`);
 
   const lookupKey: ModeKey =
-    !req.mode || req.mode === 'auto' ? 'text' : (req.mode as ModeKey);
+    !req.mode || req.mode === 'auto' ? detectMode(req.text) : (req.mode as ModeKey);
   const pipeline = resolvePipeline(lookupKey, req.pipelineId);
   if (!pipeline) {
     throw new Error('No pipeline configured. Create one in Settings → Pipelines.');
+  }
+  if (lookupKey === 'book' && !pipeline.withSummarizer) {
+    throw new Error(
+      'Book mode requires a pipeline with summarizer enabled. Choose the Book preset in Settings → Pipelines.',
+    );
   }
 
   const agents = buildAgentsFromPipeline(pipeline, providers.list);
@@ -202,12 +222,12 @@ export async function translateText(req: TranslateRequest): Promise<TranslateRes
   const project = resolveProject(req.projectId);
   const contextPack = previewTranslationContext(req.projectId);
 
-  let resolvedMode: Exclude<TranslationMode, 'auto'> = 'text';
+  let resolvedMode: Exclude<TranslationMode, 'auto'> = lookupKey;
   const started = performance.now();
 
   try {
     const output = await runPipeline({
-      mode: req.mode ?? 'auto',
+      mode: lookupKey,
       text: req.text,
       source: sourceLang,
       target: targetLang,
@@ -217,6 +237,7 @@ export async function translateText(req: TranslateRequest): Promise<TranslateRes
       projectName: project?.name,
       projectDescription: project?.description,
       styleNote: contextPack?.promptText,
+      discussionPolicy: discussionPolicyFor(pipeline),
       signal: req.signal,
       onEvent: (event) => {
         if (event.type === 'mode') resolvedMode = event.mode;

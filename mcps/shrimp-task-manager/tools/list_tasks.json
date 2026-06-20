@@ -1,0 +1,24 @@
+{
+  "name": "list_tasks",
+  "description": "Generate structured task lists, including complete status tracking, priorities, and dependencies\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "all",
+          "pending",
+          "in_progress",
+          "completed"
+        ],
+        "description": "要列出的任務狀態，可選擇 'all' 列出所有任務，或指定具體狀態"
+      }
+    },
+    "required": [
+      "status"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

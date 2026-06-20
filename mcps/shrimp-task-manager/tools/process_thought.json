@@ -1,0 +1,63 @@
+{
+  "name": "process_thought",
+  "description": "Conduct flexible and evolvable thinking processes, progressively deepen understanding and generate effective solutions through establishing, questioning, verifying, and correcting ideas. When encountering situations requiring data collection, analysis, or research, prioritize reviewing project-related code; if relevant code does not exist, query the web rather than speculate. Set nextThoughtNeeded to false when thinking is sufficient, otherwise adjust total_thoughts to extend the process\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "thought": {
+        "type": "string",
+        "minLength": 1,
+        "description": "思維內容"
+      },
+      "thought_number": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "當前思維編號"
+      },
+      "total_thoughts": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "預計總思維數量，如果需要更多的思考可以隨時變更"
+      },
+      "next_thought_needed": {
+        "type": "boolean",
+        "description": "是否需要下一步思維"
+      },
+      "stage": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Thinking stage. Available stages include: Problem Definition, Information Gathering, Research, Analysis, Synthesis, Conclusion, Critical Questioning, and Planning."
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "思維標籤，是一個陣列字串"
+      },
+      "axioms_used": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "使用的公理，是一個陣列字串"
+      },
+      "assumptions_challenged": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "挑戰的假設，是一個陣列字串"
+      }
+    },
+    "required": [
+      "thought",
+      "thought_number",
+      "total_thoughts",
+      "next_thought_needed",
+      "stage"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -60,6 +60,12 @@ class SessionsStore {
     this.list = this.list.filter((s) => s.id !== id);
   }
 
+  async removeForProject(projectId: string) {
+    const rows = this.list.filter((s) => s.projectId === projectId);
+    await Promise.all(rows.map((s) => idbDelete(STORES.sessions, s.id)));
+    this.list = this.list.filter((s) => s.projectId !== projectId);
+  }
+
   /**
    * Push a new message into a session. If this is the first user message,
    * also seed the session title from its leading words.
