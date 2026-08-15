@@ -156,12 +156,13 @@ Hosted API work is planned separately from the open-source BYOK build.
 - Telegram channel: [@marsfox_offical](https://t.me/marsfox_offical)
 
 ## Star History
+## Star History
 
-<a href="https://www.star-history.com/?repos=Marsfox-Studio%2FTragents&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=Marsfox-Studio%2FTragents&type=date&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&theme=dark&legend=bottom-right&sealed_token=oo6FXcboQC9MymRZ2u5rW4mRUvDNHV9bZfQgk1lc8ghlhMnL_trUy6xGtQIWzJOXhKC1Oe64lpBM92hxuVJ4Cwr5Xu6ps3Lq7n9NBwETLfuVfFW7kNid6dnVAvlXmIzveCw6wJlJKoOJ3fdSiM0DAOJb-c_wubnUTkPraTxGW71B_RVN_MlpPbzoD8Xp" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right&sealed_token=oo6FXcboQC9MymRZ2u5rW4mRUvDNHV9bZfQgk1lc8ghlhMnL_trUy6xGtQIWzJOXhKC1Oe64lpBM92hxuVJ4Cwr5Xu6ps3Lq7n9NBwETLfuVfFW7kNid6dnVAvlXmIzveCw6wJlJKoOJ3fdSiM0DAOJb-c_wubnUTkPraTxGW71B_RVN_MlpPbzoD8Xp" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Marsfox-Studio/Tragents&type=date&legend=bottom-right&sealed_token=oo6FXcboQC9MymRZ2u5rW4mRUvDNHV9bZfQgk1lc8ghlhMnL_trUy6xGtQIWzJOXhKC1Oe64lpBM92hxuVJ4Cwr5Xu6ps3Lq7n9NBwETLfuVfFW7kNid6dnVAvlXmIzveCw6wJlJKoOJ3fdSiM0DAOJb-c_wubnUTkPraTxGW71B_RVN_MlpPbzoD8Xp" />
  </picture>
 </a>
 
