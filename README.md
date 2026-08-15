@@ -156,7 +156,6 @@ Hosted API work is planned separately from the open-source BYOK build.
 - Telegram channel: [@marsfox_offical](https://t.me/marsfox_offical)
 
 ## Star History
-## Star History
 
 <a href="https://www.star-history.com/?repos=Marsfox-Studio%2FTragents&type=date&legend=bottom-right">
  <picture>
